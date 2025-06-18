@@ -61,6 +61,7 @@ void Error_Handler(void);
 #define TRIGGER_PIN_GPIO_Port GPIOA
 #define ECHO_PIN_Pin GPIO_PIN_9
 #define ECHO_PIN_GPIO_Port GPIOA
+#define ECHO_PIN_EXTI_IRQn EXTI9_5_IRQn
 
 /* USER CODE BEGIN Private defines */
 

@@ -89,12 +89,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
 			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
-			if (uart_busy == 0) { 	//Trasmette solo se la trasmissione precedente è finita
-				for (int i=0; i<4; i++) distance_string[i] = 0;  //puliamo la stringa precedente (sprintf non sovrascrive tutti i caratteri se non serve) per migliorare la leggibilità dello schermo
-        sprintf((char*)distance_string, "%lu", distance);
-				uart_busy = 1;
-				//HAL_UART_Transmit_IT(&huart2, (uint8_t *)distance_string,4);
-			}
 		}
 	}
 }
@@ -136,12 +130,6 @@ int main(void)
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
   ssd1306_Init();
-  ssd1306_Fill(Black);
-
-  int number;
-  number=0;
-
-
 
   /* USER CODE END 2 */
 
@@ -153,12 +141,8 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	  ultrasound_trigger_func();
-	  	  sprintf(distance_string,"%lu",distance);
-	  	  ssd1306_Fill(Black);
-	  	  ssd1306_SetCursor(45,20);
-	  	  ssd1306_WriteString(distance_string,Font_16x26,White);
-	  	  ssd1306_UpdateScreen();
-	  	  HAL_Delay(500);
+	  ssd1306_DisplayNumber(distance);
+	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
@@ -327,9 +311,13 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pin : ECHO_PIN_Pin */
   GPIO_InitStruct.Pin = ECHO_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(ECHO_PIN_GPIO_Port, &GPIO_InitStruct);
+
+  /* EXTI interrupt init*/
+  HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
