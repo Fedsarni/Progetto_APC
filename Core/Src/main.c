@@ -21,6 +21,10 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include "ssd1306.h"
+#include "ssd1306_fonts.h"
+#include "number_display.h"
+#include <stdio.h>
 
 /* USER CODE END Includes */
 
@@ -31,7 +35,8 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
-
+#define TRIG_PORT GPIOA
+#define ECHO_PORT GPIOA
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +51,12 @@ TIM_HandleTypeDef htim2;
 
 /* USER CODE BEGIN PV */
 
+uint32_t echo_start_time =0;
+uint32_t echo_stop_time= 0;
+uint32_t distance = 0;
+volatile uint32_t uart_busy = 0;
+char distance_string[4];
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -54,12 +65,39 @@ static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
+void ultrasound_trigger_func();
 
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void ultrasound_trigger_func(){
+	//Questa funzione invia l'impulso iniziale di 10us
+	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
+	//Aspetta 10us. Siccome il prescaler di TIM2 è 47, ogni conteggio sarà 1us
+	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	while (__HAL_TIM_GET_COUNTER (&htim2) < 10); //Aspettiamo che il conteggio sia 10
+	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+}
 
+//ISR chiamata quando un pin exti cambia stato, nel nostro caso il pin ECHO
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
+	if (GPIO_Pin == ECHO_PIN_Pin) {
+		if (HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN_Pin) == GPIO_PIN_SET) {
+			//Se ECHO è alto allora basta inziare a contare (o salvare il conteggio iniziale)
+			echo_start_time = __HAL_TIM_GET_COUNTER (&htim2);
+		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
+			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
+			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
+			if (uart_busy == 0) { 	//Trasmette solo se la trasmissione precedente è finita
+				for (int i=0; i<4; i++) distance_string[i] = 0;  //puliamo la stringa precedente (sprintf non sovrascrive tutti i caratteri se non serve) per migliorare la leggibilità dello schermo
+        sprintf((char*)distance_string, "%lu", distance);
+				uart_busy = 1;
+				//HAL_UART_Transmit_IT(&huart2, (uint8_t *)distance_string,4);
+			}
+		}
+	}
+}
 /* USER CODE END 0 */
 
 /**
@@ -94,6 +132,16 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
+  HAL_TIM_Base_Start(&htim2);
+  HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
+
+  ssd1306_Init();
+  ssd1306_Fill(Black);
+
+  int number;
+  number=0;
+
+
 
   /* USER CODE END 2 */
 
@@ -104,6 +152,13 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	  ultrasound_trigger_func();
+	  	  sprintf(distance_string,"%lu",distance);
+	  	  ssd1306_Fill(Black);
+	  	  ssd1306_SetCursor(45,20);
+	  	  ssd1306_WriteString(distance_string,Font_16x26,White);
+	  	  ssd1306_UpdateScreen();
+	  	  HAL_Delay(500);
   }
   /* USER CODE END 3 */
 }
@@ -261,19 +316,19 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(ECHO_PIN_GPIO_Port, ECHO_PIN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin : TRIGGER_PIN_Pin */
   GPIO_InitStruct.Pin = TRIGGER_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(TRIGGER_PIN_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pin : ECHO_PIN_Pin */
   GPIO_InitStruct.Pin = ECHO_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(ECHO_PIN_GPIO_Port, &GPIO_InitStruct);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
