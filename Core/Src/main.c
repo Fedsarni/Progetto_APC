@@ -54,7 +54,6 @@ TIM_HandleTypeDef htim2;
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
-volatile uint32_t uart_busy = 0;
 char distance_string[4];
 
 /* USER CODE END PV */
@@ -88,7 +87,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_start_time = __HAL_TIM_GET_COUNTER (&htim2);
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
-			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
 		}
 	}
 }

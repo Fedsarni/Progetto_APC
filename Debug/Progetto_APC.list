@@ -29,25 +29,25 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  12 .ARM.attributes 00000030  00000000  00000000  0000805c  2**0
                   CONTENTS, READONLY
- 13 .debug_info   0000e62f  00000000  00000000  0000808c  2**0
+ 13 .debug_info   0000e61e  00000000  00000000  0000808c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 14 .debug_abbrev 0000244f  00000000  00000000  000166bb  2**0
+ 14 .debug_abbrev 0000244f  00000000  00000000  000166aa  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_aranges 00000e40  00000000  00000000  00018b10  2**3
+ 15 .debug_aranges 00000e40  00000000  00000000  00018b00  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_rnglists 00000afc  00000000  00000000  00019950  2**0
+ 16 .debug_rnglists 00000afc  00000000  00000000  00019940  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_macro  0001e5ad  00000000  00000000  0001a44c  2**0
+ 17 .debug_macro  0001e5ad  00000000  00000000  0001a43c  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_line   00012352  00000000  00000000  000389f9  2**0
+ 18 .debug_line   00012352  00000000  00000000  000389e9  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_str    000b484b  00000000  00000000  0004ad4b  2**0
+ 19 .debug_str    000b4841  00000000  00000000  0004ad3b  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .comment      00000043  00000000  00000000  000ff596  2**0
+ 20 .comment      00000043  00000000  00000000  000ff57c  2**0
                   CONTENTS, READONLY
- 21 .debug_frame  00004134  00000000  00000000  000ff5dc  2**2
+ 21 .debug_frame  00004134  00000000  00000000  000ff5c0  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 22 .debug_line_str 00000063  00000000  00000000  00103710  2**0
+ 22 .debug_line_str 00000063  00000000  00000000  001036f4  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -899,7 +899,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  8000afc:	6013      	str	r3, [r2, #0]
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
-			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
 		}
 	}
 }
@@ -910,7 +910,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  8000b04:	6a5b      	ldr	r3, [r3, #36]	@ 0x24
  8000b06:	4a18      	ldr	r2, [pc, #96]	@ (8000b68 <HAL_GPIO_EXTI_Callback+0x98>)
  8000b08:	6013      	str	r3, [r2, #0]
-			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
  8000b0a:	4b17      	ldr	r3, [pc, #92]	@ (8000b68 <HAL_GPIO_EXTI_Callback+0x98>)
  8000b0c:	681a      	ldr	r2, [r3, #0]
  8000b0e:	4b15      	ldr	r3, [pc, #84]	@ (8000b64 <HAL_GPIO_EXTI_Callback+0x94>)
@@ -943,8 +943,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
  8000b50:	bd80      	pop	{r7, pc}
  8000b52:	bf00      	nop
  8000b54:	f3af 8000 	nop.w
- 8000b58:	b020c49c 	.word	0xb020c49c
- 8000b5c:	3fa16872 	.word	0x3fa16872
+ 8000b58:	5c28f5c3 	.word	0x5c28f5c3
+ 8000b5c:	3fd5c28f 	.word	0x3fd5c28f
  8000b60:	200000cc 	.word	0x200000cc
  8000b64:	20000118 	.word	0x20000118
  8000b68:	2000011c 	.word	0x2000011c
@@ -1008,8 +1008,8 @@ int main(void)
  8000ba6:	681b      	ldr	r3, [r3, #0]
  8000ba8:	4618      	mov	r0, r3
  8000baa:	f7ff ff4f 	bl	8000a4c <ssd1306_DisplayNumber>
-	  HAL_Delay(500);
- 8000bae:	f44f 70fa 	mov.w	r0, #500	@ 0x1f4
+	  HAL_Delay(400);
+ 8000bae:	f44f 70c8 	mov.w	r0, #400	@ 0x190
  8000bb2:	f000 fd2d 	bl	8001610 <HAL_Delay>
 	  ultrasound_trigger_func();
  8000bb6:	bf00      	nop
