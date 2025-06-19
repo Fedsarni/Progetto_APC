@@ -25,6 +25,10 @@
 #include "ssd1306_fonts.h"
 #include "number_display.h"
 #include <stdio.h>
+#include "qrcodegen.h"
+#include <stdlib.h>
+
+
 
 /* USER CODE END Includes */
 
@@ -37,6 +41,9 @@
 /* USER CODE BEGIN PD */
 #define TRIG_PORT GPIOA
 #define ECHO_PORT GPIOA
+
+#define SCALE 3
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,6 +53,7 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
@@ -58,6 +66,10 @@ uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
 uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
 char distance_string[4];
+
+uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+char qr_string[6]; // 5 cifre + terminatore '\0'
 
 // defines per led
 #define LED_NUMBER      1
@@ -76,6 +88,7 @@ static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
 
@@ -143,6 +156,48 @@ void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
     HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
 }
 
+//generazione codice univoco e conversione qrcode
+void generate_random_string(void) {
+    for (int i = 0; i < 5; i++) {
+        qr_string[i] = '0' + (rand() % 10); // cifra casuale da '0' a '9'
+    }
+    qr_string[5] = '\0'; // terminatore stringa
+}
+
+void draw_qr_on_display2(const char *text) {
+
+    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+                                       qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+                                       qrcodegen_Mask_AUTO, true);
+
+        if (ok) {
+            int qrsize = qrcodegen_getSize(qrcode);
+            int offsetX = (128 - qrsize * SCALE) / 2;
+            int offsetY = (64 - qrsize * SCALE) / 2;
+
+            ssd1306_Fill(Black); // Pulisce lo schermo
+
+            for (int y = 0; y < qrsize; y++) {
+                for (int x = 0; x < qrsize; x++) {
+                    bool pixel = qrcodegen_getModule(qrcode, x, y);
+                    for (int dy = 0; dy < SCALE; dy++) {
+                        for (int dx = 0; dx < SCALE; dx++) {
+                            int drawX = x * SCALE + dx + offsetX;
+                            int drawY = y * SCALE + dy + offsetY;
+
+                            if (pixel)
+                                ssd1306_DrawPixel(drawX, drawY, White);
+                            else
+                                ssd1306_DrawPixel(drawX, drawY, Black);
+                        }
+                    }
+                }
+            }
+
+            ssd1306_UpdateScreen();  // Aggiorna il display
+        }
+    }
+
 /* USER CODE END 0 */
 
 /**
@@ -178,13 +233,18 @@ int main(void)
   MX_I2C1_Init();
   MX_TIM2_Init();
   MX_TIM4_Init();
+  MX_I2C2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
   ssd1306_Init();
 
+  generate_random_string();  // Genera stringa casuale
+  draw_qr_on_display2(qr_string);  // Disegna il QR code corrispondente
+
   /* USER CODE END 2 */
+
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -193,10 +253,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	  ultrasound_trigger_func();
-	  ssd1306_DisplayNumber(distance);
-	  HAL_Delay(500);
 
+	  ultrasound_trigger_func();
+	  //ssd1306_DisplayNumber(distance);
+
+
+
+
+	  HAL_Delay(500);
 
 	  if (distance < 20) {
 	      distanzaVicinoCounter++;
@@ -254,8 +318,9 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_I2C2;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
+  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_HSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -307,6 +372,54 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
+
+}
+
+/**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x00201D2B;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -443,6 +556,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();

@@ -1,5 +1,6 @@
 "./Core/Src/File nostri/number_display.o"
 "./Core/Src/main.o"
+"./Core/Src/qrcodegen.o"
 "./Core/Src/stm32f3xx_hal_msp.o"
 "./Core/Src/stm32f3xx_it.o"
 "./Core/Src/syscalls.o"
