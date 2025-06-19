@@ -56,6 +56,7 @@ DMA_HandleTypeDef hdma_tim4_ch1;
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
+uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
 char distance_string[4];
 
 // defines per led
@@ -131,6 +132,17 @@ void WS2812_Send(void) {
 
     HAL_TIM_PWM_Stop_DMA(&htim4, TIM_CHANNEL_1);
 }
+
+// Funzione per accendere un LED specifico
+void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}
+
+// Funzione per spegnere un LED specifico
+void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
+}
+
 /* USER CODE END 0 */
 
 /**
@@ -185,13 +197,24 @@ int main(void)
 	  ssd1306_DisplayNumber(distance);
 	  HAL_Delay(500);
 
-	  //if (distance < 20) {
-	         WS2812_SetColor(0, 255, 0);  // verde
-	    // } else {
-	      //   WS2812_SetColor(0,255, 0, 0);  // rosso
-	     //}
-	     WS2812_Send();
-	     HAL_Delay(100);  // aggiorna ogni 100 ms
+
+	  if (distance < 20) {
+	      distanzaVicinoCounter++;
+
+	      if (distanzaVicinoCounter >= 10) { // 50 * 100ms = 5 secondi
+	          TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
+	          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
+	      } else {
+	          TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+	          TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
+	      }
+	  } else {
+	      distanzaVicinoCounter = 0; // reset del timer
+	      TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+	      TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
+	  }
+
+	  //HAL_Delay(100); // ogni 100 ms
   }
   /* USER CODE END 3 */
 }
@@ -354,7 +377,7 @@ static void MX_TIM4_Init(void)
   htim4.Instance = TIM4;
   htim4.Init.Prescaler = 0;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 89;
+  htim4.Init.Period = 104;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -420,12 +443,23 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9|GPIO_PIN_11, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : PE9 PE11 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_11;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : TRIGGER_PIN_Pin */
   GPIO_InitStruct.Pin = TRIGGER_PIN_Pin;
