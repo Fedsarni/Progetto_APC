@@ -65,19 +65,15 @@ uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
 uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
+uint32_t away_counter = 0;
+volatile uint16_t qr_flag = 0;
 char distance_string[4];
 
 uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
 uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
 
-// defines per led
-#define LED_NUMBER      1
-#define COLOR_BYTES     24
-#define WS2812_RESET    50
-#define WS2812_HIGH     60  // duty per bit 1 (~0.8 us)
-#define WS2812_LOW      30  // duty per bit 0 (~0.4 us)
-uint16_t ws2812_buffer[LED_NUMBER * COLOR_BYTES + WS2812_RESET];
+
 
 /* USER CODE END PV */
 
@@ -91,11 +87,30 @@ static void MX_TIM4_Init(void);
 static void MX_I2C2_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
-
+void init_posto();
+void sbarra_up();
+void sbarra_down();
+void draw_qr_on_display2(const char *text);
+void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+void generate_random_string(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+void sbarra_up(){
+	TurnOffLed(GPIOE,GPIO_PIN_12);
+}
+
+void sbarra_down(){
+	TurnOnLed(GPIOE,GPIO_PIN_12);
+}
+
+void init_posto(){
+	TurnOnLed(GPIOE,GPIO_PIN_11);
+	TurnOffLed(GPIOE,GPIO_PIN_9);
+	sbarra_up();
+}
 void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
@@ -105,7 +120,8 @@ void ultrasound_trigger_func(){
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
 }
 
-//ISR chiamata quando un pin exti cambia stato, nel nostro caso il pin ECHO
+//ISR chiamata quando si verifica un qualsiasi evento sull'interfaccia GPIO
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == ECHO_PIN_Pin) {
 		if (HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN_Pin) == GPIO_PIN_SET) {
@@ -115,36 +131,42 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
 			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
 		}
+		if (distance < 20) {
+			      distanzaVicinoCounter++;
+			      if (distanzaVicinoCounter >= 10) { // 50 * 100ms = 5 secondi
+			    	  away_counter = 0;
+			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
+			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
+			      }
+
+		 } else {
+			 	  away_counter++;
+			 	  distanzaVicinoCounter = 0; // reset del timer
+			 	  if(away_counter >=10){
+			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
+			 	  }
+
+			  }
+		 }
+
+	if (GPIO_Pin == GPIO_PIN_9) {
+	  if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_9) == GPIO_PIN_SET){
+		  sbarra_down();
+		  if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_12) == GPIO_PIN_SET){
+			  qr_flag =1;
+		  }
+	  }
+	}
+	if (GPIO_Pin == GPIO_PIN_12){
+
 	}
 }
 
 
-// funzioni per i led ARGB
-void WS2812_SetColor(uint8_t red, uint8_t green, uint8_t blue) {
-    uint32_t color = (green << 16) | (red << 8) | blue;
 
-    for (int i = 0; i < COLOR_BYTES; i++) {
-        if (color & (1 << (23 - i))) {
-            ws2812_buffer[i] = WS2812_HIGH;
-        } else {
-            ws2812_buffer[i] = WS2812_LOW;
-        }
-    }
 
-    // RESET (basso per 50+ cicli)
-    for (int i = COLOR_BYTES; i < COLOR_BYTES + WS2812_RESET; i++) {
-        ws2812_buffer[i] = 0;
-    }
-}
 
-void WS2812_Send(void) {
-    HAL_TIM_PWM_Start_DMA(&htim4, TIM_CHANNEL_1, (uint32_t *)ws2812_buffer, sizeof(ws2812_buffer)/sizeof(uint16_t));
-
-    // Attendi fine DMA (opzionale)
-    while (HAL_DMA_GetState(htim4.hdma[TIM_DMA_ID_CC1]) != HAL_DMA_STATE_READY);
-
-    HAL_TIM_PWM_Stop_DMA(&htim4, TIM_CHANNEL_1);
-}
 
 // Funzione per accendere un LED specifico
 void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
@@ -169,7 +191,6 @@ void draw_qr_on_display2(const char *text) {
     bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
                                        qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
                                        qrcodegen_Mask_AUTO, true);
-
         if (ok) {
             int qrsize = qrcodegen_getSize(qrcode);
             int offsetX = (128 - qrsize * SCALE) / 2;
@@ -238,13 +259,14 @@ int main(void)
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
+   // Genera stringa casuale
+  init_posto();
   ssd1306_Init();
+  //questa va spostata in un altra logica
+  generate_random_string();
 
-  generate_random_string();  // Genera stringa casuale
-  draw_qr_on_display2(qr_string);  // Disegna il QR code corrispondente
 
   /* USER CODE END 2 */
-
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
@@ -253,30 +275,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-
+	  if (qr_flag){
+		 qr_flag=0;
+		 draw_qr_on_display2(qr_string);
+	  }
 	  ultrasound_trigger_func();
-	  //ssd1306_DisplayNumber(distance);
-
-
-
-
+	  //ssd1306_DisplayNumber(qr_flag);
 	  HAL_Delay(500);
 
-	  if (distance < 20) {
-	      distanzaVicinoCounter++;
-
-	      if (distanzaVicinoCounter >= 10) { // 50 * 100ms = 5 secondi
-	          TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
-	          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
-	      } else {
-	          TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
-	          TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
-	      }
-	  } else {
-	      distanzaVicinoCounter = 0; // reset del timer
-	      TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
-	      TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
-	  }
 
 	  //HAL_Delay(100); // ogni 100 ms
   }
@@ -563,13 +569,13 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9|GPIO_PIN_11, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_12, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE9 PE11 */
-  GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_11;
+  /*Configure GPIO pins : PE9 PE11 PE12 */
+  GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_12;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
