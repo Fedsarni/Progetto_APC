@@ -57,7 +57,6 @@ I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
-DMA_HandleTypeDef hdma_tim4_ch1;
 
 /* USER CODE BEGIN PV */
 
@@ -68,7 +67,8 @@ uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
 uint32_t away_counter = 0;
 volatile uint16_t qr_flag = 0;
 char distance_string[4];
-
+uint32_t pwm = 0;
+bool dir = 0;
 uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
 uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
@@ -80,11 +80,10 @@ char qr_string[6]; // 5 cifre + terminatore '\0'
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
 static void MX_TIM2_Init(void);
-static void MX_TIM4_Init(void);
 static void MX_I2C2_Init(void);
+static void MX_TIM4_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
 void init_posto();
@@ -93,17 +92,28 @@ void sbarra_down();
 void draw_qr_on_display2(const char *text);
 void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
 void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+void SetServoAngle(uint8_t anglle);
 void generate_random_string(void);
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//funzione per regolare l'angolo del servo
+void SetServoAngle(uint8_t angle){
+	uint16_t pulse = 900+(angle*2200)/180;
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_1,pulse);
+}
+
 void sbarra_up(){
-	TurnOffLed(GPIOE,GPIO_PIN_12);
+	for (int angle = 0; angle<=90;angle++){
+		SetServoAngle(angle);
+	}
 }
 
 void sbarra_down(){
-	TurnOnLed(GPIOE,GPIO_PIN_12);
+	for (int angle = 90; angle>0;angle--){
+		SetServoAngle(angle);
+	}
 }
 
 void init_posto(){
@@ -129,7 +139,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_start_time = __HAL_TIM_GET_COUNTER (&htim2);
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
-			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
 		}
 		if (distance < 20) {
 			      distanzaVicinoCounter++;
@@ -143,7 +153,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			 	  away_counter++;
 			 	  distanzaVicinoCounter = 0; // reset del timer
 			 	  if(away_counter >=10){
-			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+			 		  ;TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
 			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			 	  }
 
@@ -219,6 +229,7 @@ void draw_qr_on_display2(const char *text) {
         }
     }
 
+
 /* USER CODE END 0 */
 
 /**
@@ -250,20 +261,21 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_I2C1_Init();
   MX_TIM2_Init();
-  MX_TIM4_Init();
   MX_I2C2_Init();
+  MX_TIM4_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
-
+  HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_1);
    // Genera stringa casuale
   init_posto();
   ssd1306_Init();
   //questa va spostata in un altra logica
   generate_random_string();
+
+
 
 
   /* USER CODE END 2 */
@@ -275,12 +287,14 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+
+
 	  if (qr_flag){
 		 qr_flag=0;
 		 draw_qr_on_display2(qr_string);
 	  }
 	  ultrasound_trigger_func();
-	  //ssd1306_DisplayNumber(qr_flag);
+	  ssd1306_DisplayNumber(distance);
 	  HAL_Delay(500);
 
 
@@ -302,10 +316,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -315,12 +333,12 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
@@ -448,9 +466,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 47;
+  htim2.Init.Prescaler = 71;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 19999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -494,9 +512,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 71;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 104;
+  htim4.Init.Period = 19999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -530,22 +548,6 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 2 */
   HAL_TIM_MspPostInit(&htim4);
-
-}
-
-/**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
 
 }
 

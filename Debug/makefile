@@ -62,8 +62,8 @@ all: main-build
 main-build: Progetto_APC.elf secondary-outputs
 
 # Tool invocations
-Progetto_APC.elf Progetto_APC.map: $(OBJS) $(USER_OBJS) /home/fr3nk/Documents/GitHub/Progetto_APC/STM32F303VCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
-	arm-none-eabi-gcc -o "Progetto_APC.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/fr3nk/Documents/GitHub/Progetto_APC/STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Progetto_APC.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
+Progetto_APC.elf Progetto_APC.map: $(OBJS) $(USER_OBJS) /home/fr3nkpc/Documents/GitHub/Progetto_APC/STM32F303VCTX_FLASH.ld makefile objects.list $(OPTIONAL_TOOL_DEPS)
+	arm-none-eabi-gcc -o "Progetto_APC.elf" @"objects.list" $(USER_OBJS) $(LIBS) -mcpu=cortex-m4 -T"/home/fr3nkpc/Documents/GitHub/Progetto_APC/STM32F303VCTX_FLASH.ld" --specs=nosys.specs -Wl,-Map="Progetto_APC.map" -Wl,--gc-sections -static --specs=nano.specs -mfpu=fpv4-sp-d16 -mfloat-abi=hard -mthumb -Wl,--start-group -lc -lm -Wl,--end-group
 	@echo 'Finished building target: $@'
 	@echo ' '
 
