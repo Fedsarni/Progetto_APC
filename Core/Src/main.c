@@ -72,18 +72,26 @@ bool dir = 0;
 uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
 uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
-
-
-
+uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
+uint8_t free_ck = 1; //flag per indicare che il posto è libero
+uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
+uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
+char buffer[6];
+uint8_t curr_buffer = 0;
+char key;
+uint8_t row;
+uint8_t col;
+uint16_t col_pins[4] = {GPIO_PIN_2, GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_3};
+uint16_t row_pins[4] = {GPIO_PIN_11, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM2_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
 void init_posto();
@@ -94,26 +102,62 @@ void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
 void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
 void SetServoAngle(uint8_t anglle);
 void generate_random_string(void);
+void pagamento();
+void scan_colonne();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //funzione per regolare l'angolo del servo
+void scan_colonne() {
+    col = 0xFF;
+    for (int c = 0; c < 4; c++) {
+        for (int i = 0; i < 4; i++) {
+            HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
+        }
+        HAL_GPIO_WritePin(GPIOC, col_pins[c], GPIO_PIN_RESET);
+        HAL_Delay(1);
+
+        if (HAL_GPIO_ReadPin(GPIOC, row_pins[row]) == GPIO_PIN_RESET) {
+            col = c;
+            break;
+        }
+    }
+
+    for (int i = 0; i < 4; i++) {
+        HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
+    }
+
+    if (col != 0xFF) {
+        const char keys[4][4] = {
+            {'1','2','3','A'},
+            {'4','5','6','B'},
+            {'7','8','9','C'},
+            {'*','0','#','D'}
+        };
+        key = keys[row][col];
+        printf("Tasto premuto: %c\n", key);
+    }
+}
+
+void pagamento(){
+
+}
 void SetServoAngle(uint8_t angle){
 	uint16_t pulse = 900+(angle*2200)/180;
 	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_1,pulse);
 }
 
 void sbarra_up(){
-	for (int angle = 0; angle<=90;angle++){
-		SetServoAngle(angle);
-	}
+		SetServoAngle(90);
+		down_flag = 0;
+		up_flag = 1;
 }
 
 void sbarra_down(){
-	for (int angle = 90; angle>0;angle--){
-		SetServoAngle(angle);
-	}
+		SetServoAngle(0);
+		up_flag = 0;
+		down_flag = 1;
 }
 
 void init_posto(){
@@ -139,7 +183,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_start_time = __HAL_TIM_GET_COUNTER (&htim2);
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
-			distance = (echo_stop_time-echo_start_time)* 0.034/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.034/2;//Formula data
+			if (distance >= 45) distance = 40; //questo serve per correggere l'overflow
 		}
 		if (distance < 20) {
 			      distanzaVicinoCounter++;
@@ -147,30 +192,46 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			    	  away_counter = 0;
 			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
+			          free_ck = 0;
+			          occupato_ck  = 1;
 			      }
 
 		 } else {
 			 	  away_counter++;
 			 	  distanzaVicinoCounter = 0; // reset del timer
 			 	  if(away_counter >=10){
-			 		  ;TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
 			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
+			 		  occupato_ck = 0;
+			 		  free_ck = 1;
 			 	  }
 
 			  }
 		 }
 
-	if (GPIO_Pin == GPIO_PIN_9) {
-	  if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_9) == GPIO_PIN_SET){
-		  sbarra_down();
-		  if (HAL_GPIO_ReadPin(GPIOE, GPIO_PIN_12) == GPIO_PIN_SET){
-			  qr_flag =1;
-		  }
-	  }
-	}
-	if (GPIO_Pin == GPIO_PIN_12){
+		if (GPIO_Pin==R1_Pin){
+				row = 0; //seleziona riga
+				//scannerizza colonne
+				scan_colonne();
+				printf("%c\n",key);
+		}else if(GPIO_Pin== R2_Pin){
+			row = 1;
+			scan_colonne();
+			printf("%c\n",key);
+		}else if (GPIO_Pin==R3_Pin){
+			row = 2;
+			scan_colonne();
+			printf("%c\n",key);
 
-	}
+		}else if(GPIO_Pin== R4_Pin){
+			row = 3;
+			scan_colonne();
+			printf("%c\n",key);
+		}else {
+			row = 0;
+			col = 0;
+		}
+
 }
 
 
@@ -262,9 +323,9 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_TIM2_Init();
   MX_I2C2_Init();
   MX_TIM4_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
@@ -287,15 +348,21 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	//ssd1306_WriteString(buffer, Font_16x26, White);
 
+	  while (occupato_ck){
+		  if(!down_flag) sbarra_down();
+		  if (down_flag){
 
-	  if (qr_flag){
-		 qr_flag=0;
-		 draw_qr_on_display2(qr_string);
+			  draw_qr_on_display2(qr_string);
+		  }
+		  ultrasound_trigger_func();
 	  }
+
 	  ultrasound_trigger_func();
-	  ssd1306_DisplayNumber(distance);
+	 ssd1306_DisplayNumber(row);
 	  HAL_Delay(500);
+
 
 
 	  //HAL_Delay(100); // ogni 100 ms
@@ -468,7 +535,7 @@ static void MX_TIM2_Init(void)
   htim2.Instance = TIM2;
   htim2.Init.Prescaler = 71;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 19999;
+  htim2.Init.Period = 9999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -564,6 +631,7 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
@@ -571,13 +639,29 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_12, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOC, C2_Pin|C3_Pin|C1_Pin|C4_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
-  /*Configure GPIO pins : PE9 PE11 PE12 */
-  GPIO_InitStruct.Pin = GPIO_PIN_9|GPIO_PIN_11|GPIO_PIN_12;
+  /*Configure GPIO pins : R2_Pin R4_Pin R3_Pin R1_Pin */
+  GPIO_InitStruct.Pin = R2_Pin|R4_Pin|R3_Pin|R1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : C2_Pin C3_Pin C1_Pin C4_Pin */
+  GPIO_InitStruct.Pin = C2_Pin|C3_Pin|C1_Pin|C4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LED_ROSSO_Pin LED_VERDE_Pin */
+  GPIO_InitStruct.Pin = LED_ROSSO_Pin|LED_VERDE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
