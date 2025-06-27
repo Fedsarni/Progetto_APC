@@ -25,6 +25,10 @@
 #include "ssd1306_fonts.h"
 #include "number_display.h"
 #include <stdio.h>
+#include "qrcodegen.h"
+#include <stdlib.h>
+
+
 
 /* USER CODE END Includes */
 
@@ -37,6 +41,9 @@
 /* USER CODE BEGIN PD */
 #define TRIG_PORT GPIOA
 #define ECHO_PORT GPIOA
+
+#define SCALE 3
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -46,42 +53,121 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
+I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
-DMA_HandleTypeDef hdma_tim4_ch1;
 
 /* USER CODE BEGIN PV */
-
+GPIO_InitTypeDef GPIO_InitStructPrivate = {0};
+uint32_t previousMillis = 0;
+uint32_t currentMillis = 0;
+uint8_t keyPressed = 0;
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
+uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
+uint32_t away_counter = 0;
+volatile uint16_t qr_flag = 0;
 char distance_string[4];
-
-// defines per led
-#define LED_NUMBER      1
-#define COLOR_BYTES     24
-#define WS2812_RESET    50
-#define WS2812_HIGH     60  // duty per bit 1 (~0.8 us)
-#define WS2812_LOW      30  // duty per bit 0 (~0.4 us)
-uint16_t ws2812_buffer[LED_NUMBER * COLOR_BYTES + WS2812_RESET];
-
+uint32_t pwm = 0;
+bool dir = 0;
+uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
+uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
+char qr_string[6]; // 5 cifre + terminatore '\0'
+uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
+uint8_t free_ck = 1; //flag per indicare che il posto è libero
+uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
+uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
+char buffer[6];
+uint8_t curr_buffer = 0;
+char key;
+uint8_t row;
+uint8_t col;
+uint16_t col_pins[4] = {GPIO_PIN_2, GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_3};
+uint16_t row_pins[4] = {GPIO_PIN_11, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14};
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
-static void MX_DMA_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_TIM2_Init(void);
+static void MX_I2C2_Init(void);
 static void MX_TIM4_Init(void);
+static void MX_TIM2_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
-
+void init_posto();
+void sbarra_up();
+void sbarra_down();
+void draw_qr_on_display2(const char *text);
+void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
+void SetServoAngle(uint8_t anglle);
+void generate_random_string(void);
+void pagamento();
+void scan_colonne();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+//funzione per regolare l'angolo del servo
+void scan_colonne() {
+    col = 0xFF;
+    for (int c = 0; c < 4; c++) {
+        for (int i = 0; i < 4; i++) {
+            HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
+        }
+        HAL_GPIO_WritePin(GPIOC, col_pins[c], GPIO_PIN_RESET);
+        HAL_Delay(1);
+
+        if (HAL_GPIO_ReadPin(GPIOC, row_pins[row]) == GPIO_PIN_RESET) {
+            col = c;
+            break;
+        }
+    }
+
+    for (int i = 0; i < 4; i++) {
+        HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
+    }
+
+    if (col != 0xFF) {
+        const char keys[4][4] = {
+            {'1','2','3','A'},
+            {'4','5','6','B'},
+            {'7','8','9','C'},
+            {'*','0','#','D'}
+        };
+        key = keys[row][col];
+        printf("Tasto premuto: %c\n", key);
+    }
+}
+
+void pagamento(){
+
+}
+void SetServoAngle(uint8_t angle){
+	uint16_t pulse = 900+(angle*2200)/180;
+	__HAL_TIM_SET_COMPARE(&htim4,TIM_CHANNEL_1,pulse);
+}
+
+void sbarra_up(){
+		SetServoAngle(90);
+		down_flag = 0;
+		up_flag = 1;
+}
+
+void sbarra_down(){
+		SetServoAngle(0);
+		up_flag = 0;
+		down_flag = 1;
+}
+
+void init_posto(){
+	TurnOnLed(GPIOE,GPIO_PIN_11);
+	TurnOffLed(GPIOE,GPIO_PIN_9);
+	sbarra_up();
+}
 void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
@@ -91,7 +177,8 @@ void ultrasound_trigger_func(){
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
 }
 
-//ISR chiamata quando un pin exti cambia stato, nel nostro caso il pin ECHO
+//ISR chiamata quando si verifica un qualsiasi evento sull'interfaccia GPIO
+
 void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	if (GPIO_Pin == ECHO_PIN_Pin) {
 		if (HAL_GPIO_ReadPin(ECHO_PORT, ECHO_PIN_Pin) == GPIO_PIN_SET) {
@@ -99,38 +186,195 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_start_time = __HAL_TIM_GET_COUNTER (&htim2);
 		} else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
-			distance = (echo_stop_time-echo_start_time)* 0.34/2;	//Formula data
+			distance = (echo_stop_time-echo_start_time)* 0.034/2;//Formula data
+			if (distance >= 45) distance = 40; //questo serve per correggere l'overflow
 		}
-	}
+		if (distance < 20) {
+			      distanzaVicinoCounter++;
+			      if (distanzaVicinoCounter >= 10) { // 50 * 100ms = 5 secondi
+			    	  away_counter = 0;
+			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
+			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
+			          free_ck = 0;
+			          occupato_ck  = 1;
+			      }
+
+		 } else {
+			 	  away_counter++;
+			 	  distanzaVicinoCounter = 0; // reset del timer
+			 	  if(away_counter >=10){
+			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
+			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
+			 		  occupato_ck = 0;
+			 		  free_ck = 1;
+			 	  }
+
+			  }
+		 }
+
+	currentMillis = HAL_GetTick();
+	if (currentMillis - previousMillis > 10) {
+	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 to GPIO_INPUT*/
+	    GPIO_InitStructPrivate.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin;
+	    GPIO_InitStructPrivate.Mode = GPIO_MODE_INPUT;
+	    GPIO_InitStructPrivate.Pull = GPIO_NOPULL;
+	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
+	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 68; //ASCII value of D
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 67; //ASCII value of C
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 66; //ASCII value of B
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 65; //ASCII value of A
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 35; //ASCII value of #
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 57; //ASCII value of 9
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 54; //ASCII value of 6
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 51; //ASCII value of 3
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 48; //ASCII value of 0
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 56; //ASCII value of 8
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 53; //ASCII value of 5
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 50; //ASCII value of 2
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 42; //ASCII value of *
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 55; //ASCII value of 7
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 52; //ASCII value of 4
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 49; //ASCII value of 1
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
+	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 back to EXTI*/
+	    GPIO_InitStructPrivate.Mode = GPIO_MODE_IT_RISING;
+	    GPIO_InitStructPrivate.Pull = GPIO_PULLDOWN;
+	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
+	    previousMillis = currentMillis;
+	  }
+
 }
 
 
-// funzioni per i led ARGB
-void WS2812_SetColor(uint8_t red, uint8_t green, uint8_t blue) {
-    uint32_t color = (green << 16) | (red << 8) | blue;
 
-    for (int i = 0; i < COLOR_BYTES; i++) {
-        if (color & (1 << (23 - i))) {
-            ws2812_buffer[i] = WS2812_HIGH;
-        } else {
-            ws2812_buffer[i] = WS2812_LOW;
+
+
+
+// Funzione per accendere un LED specifico
+void TurnOnLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_SET);
+}
+
+// Funzione per spegnere un LED specifico
+void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin) {
+    HAL_GPIO_WritePin(GPIOx, GPIO_Pin, GPIO_PIN_RESET);
+}
+
+//generazione codice univoco e conversione qrcode
+void generate_random_string(void) {
+    for (int i = 0; i < 5; i++) {
+        qr_string[i] = '0' + (rand() % 10); // cifra casuale da '0' a '9'
+    }
+    qr_string[5] = '\0'; // terminatore stringa
+}
+
+void draw_qr_on_display2(const char *text) {
+
+    bool ok = qrcodegen_encodeText(text, tempBuffer, qrcode, qrcodegen_Ecc_LOW,
+                                       qrcodegen_VERSION_MIN, qrcodegen_VERSION_MAX,
+                                       qrcodegen_Mask_AUTO, true);
+        if (ok) {
+            int qrsize = qrcodegen_getSize(qrcode);
+            int offsetX = (128 - qrsize * SCALE) / 2;
+            int offsetY = (64 - qrsize * SCALE) / 2;
+
+            ssd1306_Fill(Black); // Pulisce lo schermo
+
+            for (int y = 0; y < qrsize; y++) {
+                for (int x = 0; x < qrsize; x++) {
+                    bool pixel = qrcodegen_getModule(qrcode, x, y);
+                    for (int dy = 0; dy < SCALE; dy++) {
+                        for (int dx = 0; dx < SCALE; dx++) {
+                            int drawX = x * SCALE + dx + offsetX;
+                            int drawY = y * SCALE + dy + offsetY;
+
+                            if (pixel)
+                                ssd1306_DrawPixel(drawX, drawY, White);
+                            else
+                                ssd1306_DrawPixel(drawX, drawY, Black);
+                        }
+                    }
+                }
+            }
+
+            ssd1306_UpdateScreen();  // Aggiorna il display
         }
     }
 
-    // RESET (basso per 50+ cicli)
-    for (int i = COLOR_BYTES; i < COLOR_BYTES + WS2812_RESET; i++) {
-        ws2812_buffer[i] = 0;
-    }
-}
 
-void WS2812_Send(void) {
-    HAL_TIM_PWM_Start_DMA(&htim4, TIM_CHANNEL_1, (uint32_t *)ws2812_buffer, sizeof(ws2812_buffer)/sizeof(uint16_t));
-
-    // Attendi fine DMA (opzionale)
-    while (HAL_DMA_GetState(htim4.hdma[TIM_DMA_ID_CC1]) != HAL_DMA_STATE_READY);
-
-    HAL_TIM_PWM_Stop_DMA(&htim4, TIM_CHANNEL_1);
-}
 /* USER CODE END 0 */
 
 /**
@@ -162,15 +406,22 @@ int main(void)
 
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
-  MX_DMA_Init();
   MX_I2C1_Init();
-  MX_TIM2_Init();
+  MX_I2C2_Init();
   MX_TIM4_Init();
+  MX_TIM2_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
-
+  HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_1);
+   // Genera stringa casuale
+  init_posto();
   ssd1306_Init();
+  //questa va spostata in un altra logica
+  generate_random_string();
+
+
+
 
   /* USER CODE END 2 */
 
@@ -181,17 +432,24 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
+	//ssd1306_WriteString(buffer, Font_16x26, White);
+
+	  while (occupato_ck){
+		  if(!down_flag) sbarra_down();
+		  if (down_flag){
+
+			  draw_qr_on_display2(qr_string);
+		  }
+		  ultrasound_trigger_func();
+	  }
+
 	  ultrasound_trigger_func();
-	  ssd1306_DisplayNumber(distance);
+	 ssd1306_DisplayNumber(keyPressed);
 	  HAL_Delay(500);
 
-	  //if (distance < 20) {
-	         WS2812_SetColor(0, 255, 0);  // verde
-	    // } else {
-	      //   WS2812_SetColor(0,255, 0, 0);  // rosso
-	     //}
-	     WS2812_Send();
-	     HAL_Delay(100);  // aggiorna ogni 100 ms
+
+
+	  //HAL_Delay(100); // ogni 100 ms
   }
   /* USER CODE END 3 */
 }
@@ -209,10 +467,14 @@ void SystemClock_Config(void)
   /** Initializes the RCC Oscillators according to the specified parameters
   * in the RCC_OscInitTypeDef structure.
   */
-  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI;
+  RCC_OscInitStruct.OscillatorType = RCC_OSCILLATORTYPE_HSI|RCC_OSCILLATORTYPE_HSE;
+  RCC_OscInitStruct.HSEState = RCC_HSE_BYPASS;
+  RCC_OscInitStruct.HSEPredivValue = RCC_HSE_PREDIV_DIV1;
   RCC_OscInitStruct.HSIState = RCC_HSI_ON;
   RCC_OscInitStruct.HSICalibrationValue = RCC_HSICALIBRATION_DEFAULT;
-  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_NONE;
+  RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
+  RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSE;
+  RCC_OscInitStruct.PLL.PLLMUL = RCC_PLL_MUL9;
   if (HAL_RCC_OscConfig(&RCC_OscInitStruct) != HAL_OK)
   {
     Error_Handler();
@@ -222,17 +484,18 @@ void SystemClock_Config(void)
   */
   RCC_ClkInitStruct.ClockType = RCC_CLOCKTYPE_HCLK|RCC_CLOCKTYPE_SYSCLK
                               |RCC_CLOCKTYPE_PCLK1|RCC_CLOCKTYPE_PCLK2;
-  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_HSI;
+  RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.AHBCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_HCLK_DIV1;
 
-  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_0) != HAL_OK)
+  if (HAL_RCC_ClockConfig(&RCC_ClkInitStruct, FLASH_LATENCY_2) != HAL_OK)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_I2C2;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
+  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_HSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -288,6 +551,54 @@ static void MX_I2C1_Init(void)
 }
 
 /**
+  * @brief I2C2 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_I2C2_Init(void)
+{
+
+  /* USER CODE BEGIN I2C2_Init 0 */
+
+  /* USER CODE END I2C2_Init 0 */
+
+  /* USER CODE BEGIN I2C2_Init 1 */
+
+  /* USER CODE END I2C2_Init 1 */
+  hi2c2.Instance = I2C2;
+  hi2c2.Init.Timing = 0x00201D2B;
+  hi2c2.Init.OwnAddress1 = 0;
+  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
+  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
+  hi2c2.Init.OwnAddress2 = 0;
+  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
+  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
+  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
+  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Analogue filter
+  */
+  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
+  {
+    Error_Handler();
+  }
+
+  /** Configure Digital filter
+  */
+  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN I2C2_Init 2 */
+
+  /* USER CODE END I2C2_Init 2 */
+
+}
+
+/**
   * @brief TIM2 Initialization Function
   * @param None
   * @retval None
@@ -306,9 +617,9 @@ static void MX_TIM2_Init(void)
 
   /* USER CODE END TIM2_Init 1 */
   htim2.Instance = TIM2;
-  htim2.Init.Prescaler = 47;
+  htim2.Init.Prescaler = 71;
   htim2.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim2.Init.Period = 4294967295;
+  htim2.Init.Period = 9999;
   htim2.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim2.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim2) != HAL_OK)
@@ -352,9 +663,9 @@ static void MX_TIM4_Init(void)
 
   /* USER CODE END TIM4_Init 1 */
   htim4.Instance = TIM4;
-  htim4.Init.Prescaler = 0;
+  htim4.Init.Prescaler = 71;
   htim4.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim4.Init.Period = 89;
+  htim4.Init.Period = 19999;
   htim4.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim4.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim4) != HAL_OK)
@@ -392,22 +703,6 @@ static void MX_TIM4_Init(void)
 }
 
 /**
-  * Enable DMA controller clock
-  */
-static void MX_DMA_Init(void)
-{
-
-  /* DMA controller clock enable */
-  __HAL_RCC_DMA1_CLK_ENABLE();
-
-  /* DMA interrupt init */
-  /* DMA1_Channel1_IRQn interrupt configuration */
-  HAL_NVIC_SetPriority(DMA1_Channel1_IRQn, 0, 0);
-  HAL_NVIC_EnableIRQ(DMA1_Channel1_IRQn);
-
-}
-
-/**
   * @brief GPIO Initialization Function
   * @param None
   * @retval None
@@ -420,12 +715,41 @@ static void MX_GPIO_Init(void)
   /* USER CODE END MX_GPIO_Init_1 */
 
   /* GPIO Ports Clock Enable */
+  __HAL_RCC_GPIOC_CLK_ENABLE();
+  __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
   __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOC, C2_Pin|C3_Pin|C1_Pin|C4_Pin, GPIO_PIN_SET);
+
+  /*Configure GPIO pin Output Level */
+  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
+
+  /*Configure GPIO pins : R2_Pin R4_Pin R3_Pin R1_Pin */
+  GPIO_InitStruct.Pin = R2_Pin|R4_Pin|R3_Pin|R1_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : C2_Pin C3_Pin C1_Pin C4_Pin */
+  GPIO_InitStruct.Pin = C2_Pin|C3_Pin|C1_Pin|C4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : LED_ROSSO_Pin LED_VERDE_Pin */
+  GPIO_InitStruct.Pin = LED_ROSSO_Pin|LED_VERDE_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
 
   /*Configure GPIO pin : TRIGGER_PIN_Pin */
   GPIO_InitStruct.Pin = TRIGGER_PIN_Pin;
@@ -443,6 +767,9 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
