@@ -59,7 +59,10 @@ TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
-
+GPIO_InitTypeDef GPIO_InitStructPrivate = {0};
+uint32_t previousMillis = 0;
+uint32_t currentMillis = 0;
+uint8_t keyPressed = 0;
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
@@ -209,28 +212,109 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			  }
 		 }
 
-		if (GPIO_Pin==R1_Pin){
-				row = 0; //seleziona riga
-				//scannerizza colonne
-				scan_colonne();
-				printf("%c\n",key);
-		}else if(GPIO_Pin== R2_Pin){
-			row = 1;
-			scan_colonne();
-			printf("%c\n",key);
-		}else if (GPIO_Pin==R3_Pin){
-			row = 2;
-			scan_colonne();
-			printf("%c\n",key);
+	currentMillis = HAL_GetTick();
+	if (currentMillis - previousMillis > 10) {
+	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 to GPIO_INPUT*/
+	    GPIO_InitStructPrivate.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin;
+	    GPIO_InitStructPrivate.Mode = GPIO_MODE_INPUT;
+	    GPIO_InitStructPrivate.Pull = GPIO_NOPULL;
+	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
+	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
 
-		}else if(GPIO_Pin== R4_Pin){
-			row = 3;
-			scan_colonne();
-			printf("%c\n",key);
-		}else {
-			row = 0;
-			col = 0;
-		}
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 68; //ASCII value of D
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 67; //ASCII value of C
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 66; //ASCII value of B
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 65; //ASCII value of A
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 35; //ASCII value of #
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 57; //ASCII value of 9
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 54; //ASCII value of 6
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 51; //ASCII value of 3
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 48; //ASCII value of 0
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 56; //ASCII value of 8
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 53; //ASCII value of 5
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 50; //ASCII value of 2
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
+	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    {
+	      keyPressed = 42; //ASCII value of *
+	    }
+	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    {
+	      keyPressed = 55; //ASCII value of 7
+	    }
+	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    {
+	      keyPressed = 52; //ASCII value of 4
+	    }
+	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    {
+	      keyPressed = 49; //ASCII value of 1
+	    }
+
+	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
+	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
+	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
+	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
+	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 back to EXTI*/
+	    GPIO_InitStructPrivate.Mode = GPIO_MODE_IT_RISING;
+	    GPIO_InitStructPrivate.Pull = GPIO_PULLDOWN;
+	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
+	    previousMillis = currentMillis;
+	  }
 
 }
 
@@ -360,7 +444,7 @@ int main(void)
 	  }
 
 	  ultrasound_trigger_func();
-	 ssd1306_DisplayNumber(row);
+	 ssd1306_DisplayNumber(keyPressed);
 	  HAL_Delay(500);
 
 
@@ -649,8 +733,8 @@ static void MX_GPIO_Init(void)
 
   /*Configure GPIO pins : R2_Pin R4_Pin R3_Pin R1_Pin */
   GPIO_InitStruct.Pin = R2_Pin|R4_Pin|R3_Pin|R1_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
-  GPIO_InitStruct.Pull = GPIO_PULLUP;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
   /*Configure GPIO pins : C2_Pin C3_Pin C1_Pin C4_Pin */
@@ -683,6 +767,9 @@ static void MX_GPIO_Init(void)
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(EXTI9_5_IRQn);
+
+  HAL_NVIC_SetPriority(EXTI15_10_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(EXTI15_10_IRQn);
 
   /* USER CODE BEGIN MX_GPIO_Init_2 */
 
