@@ -62,7 +62,7 @@ TIM_HandleTypeDef htim4;
 GPIO_InitTypeDef GPIO_InitStructPrivate = {0};
 uint32_t previousMillis = 0;
 uint32_t currentMillis = 0;
-uint8_t keyPressed = 0;
+char keyPressed = ' ';
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
@@ -227,19 +227,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
 	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
 	    {
-	      keyPressed = 68; //ASCII value of D
+	      keyPressed = '1'; //ASCII value of D
 	    }
 	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
 	    {
-	      keyPressed = 67; //ASCII value of C
+	      keyPressed = '4'; //ASCII value of C
 	    }
 	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
 	    {
-	      keyPressed = 66; //ASCII value of B
+	      keyPressed = '7'; //ASCII value of B
 	    }
 	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
 	    {
-	      keyPressed = 65; //ASCII value of A
+	      keyPressed = '*'; //ASCII value of A
 	    }
 
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
@@ -248,19 +248,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
 	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
 	    {
-	      keyPressed = 35; //ASCII value of #
+	      keyPressed = '2'; //ASCII value of #
 	    }
 	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
 	    {
-	      keyPressed = 57; //ASCII value of 9
+	      keyPressed = '5'; //ASCII value of 9
 	    }
 	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
 	    {
-	      keyPressed = 54; //ASCII value of 6
+	      keyPressed = '8'; //ASCII value of 6
 	    }
 	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
 	    {
-	      keyPressed = 51; //ASCII value of 3
+	      keyPressed = '0'; //ASCII value of 3
 	    }
 
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
@@ -269,19 +269,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
 	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
 	    {
-	      keyPressed = 48; //ASCII value of 0
+	      keyPressed = '3'; //ASCII value of 0
 	    }
 	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
 	    {
-	      keyPressed = 56; //ASCII value of 8
+	      keyPressed = '6'; //ASCII value of 8
 	    }
 	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
 	    {
-	      keyPressed = 53; //ASCII value of 5
+	      keyPressed = '9'; //ASCII value of 5
 	    }
 	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
 	    {
-	      keyPressed = 50; //ASCII value of 2
+	      keyPressed = '#'; //ASCII value of 2
 	    }
 
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
@@ -290,19 +290,19 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
 	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
 	    {
-	      keyPressed = 42; //ASCII value of *
+	      keyPressed = 'A'; //ASCII value of *
 	    }
 	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
 	    {
-	      keyPressed = 55; //ASCII value of 7
+	      keyPressed = 'B'; //ASCII value of 7
 	    }
 	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
 	    {
-	      keyPressed = 52; //ASCII value of 4
+	      keyPressed = 'C'; //ASCII value of 4
 	    }
 	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
 	    {
-	      keyPressed = 49; //ASCII value of 1
+	      keyPressed = 'D'; //ASCII value of 1
 	    }
 
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
@@ -444,7 +444,10 @@ int main(void)
 	  }
 
 	  ultrasound_trigger_func();
-	 ssd1306_DisplayNumber(keyPressed);
+		ssd1306_Fill(Black);
+		ssd1306_SetCursor(45,20);
+	 ssd1306_WriteChar(keyPressed, Font_16x26, White);
+		ssd1306_UpdateScreen();
 	  HAL_Delay(500);
 
 
