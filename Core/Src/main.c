@@ -103,42 +103,43 @@ void TurnOffLed(GPIO_TypeDef* GPIOx, uint16_t GPIO_Pin);
 void SetServoAngle(uint8_t anglle);
 void generate_random_string(void);
 void pagamento();
-void scan_colonne();
 /* USER CODE END PFP */
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-//funzione per regolare l'angolo del servo
-void scan_colonne() {
-    col = 0xFF;
-    for (int c = 0; c < 4; c++) {
+
+char keypad_getkey(void) {
+    const char keys[4][4] = {
+        {'1','2','3','A'},
+        {'4','5','6','B'},
+        {'7','8','9','C'},
+        {'*','0','#','D'}
+    };
+
+    for ( col = 0; col < 4; col++) {
+        // Imposta tutte le colonne alte
         for (int i = 0; i < 4; i++) {
             HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
         }
-        HAL_GPIO_WritePin(GPIOC, col_pins[c], GPIO_PIN_RESET);
-        HAL_Delay(1);
+        // Imposta la colonna corrente a LOW
+        HAL_GPIO_WritePin(GPIOC, col_pins[col], GPIO_PIN_RESET);
 
-        if (HAL_GPIO_ReadPin(GPIOC, row_pins[row]) == GPIO_PIN_RESET) {
-            col = c;
-            break;
+        HAL_Delay(1); // Stabilizzazione
+
+        // Legge le righe
+        for ( row = 0; row < 4; row++) {
+            if (HAL_GPIO_ReadPin(GPIOC, row_pins[row]) == GPIO_PIN_RESET) {
+                // Attendi rilascio tasto per evitare doppie pressioni
+                while (HAL_GPIO_ReadPin(GPIOC, row_pins[row]) == GPIO_PIN_RESET);
+                HAL_Delay(10); // debounce
+                return keys[row][col];
+            }
         }
     }
 
-    for (int i = 0; i < 4; i++) {
-        HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
-    }
-
-    if (col != 0xFF) {
-        const char keys[4][4] = {
-            {'1','2','3','A'},
-            {'4','5','6','B'},
-            {'7','8','9','C'},
-            {'*','0','#','D'}
-        };
-        key = keys[row][col];
-        printf("Tasto premuto: %c\n", key);
-    }
+    return 0; // Nessun tasto premuto
 }
+
 
 void pagamento(){
 
@@ -209,7 +210,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			  }
 		 }
 
-		if (GPIO_Pin==R1_Pin){
+		/*if (GPIO_Pin==R1_Pin){
 				row = 0; //seleziona riga
 				//scannerizza colonne
 				scan_colonne();
@@ -230,7 +231,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		}else {
 			row = 0;
 			col = 0;
-		}
+		}*/
 
 }
 
@@ -350,6 +351,15 @@ int main(void)
     /* USER CODE BEGIN 3 */
 	//ssd1306_WriteString(buffer, Font_16x26, White);
 
+	  key = keypad_getkey();
+	  if (key != 0) {
+		  buffer[0]=key;
+		  ssd1306_WriteString(buffer, Font_16x26, White);
+		  ssd1306_UpdateScreen();
+		  printf("Tasto premuto: %c\n", key);
+	      // qui aggiungi logica: memorizzare tasto, avviare pagamento, ecc.
+	  }
+
 	  while (occupato_ck){
 		  if(!down_flag) sbarra_down();
 		  if (down_flag){
@@ -360,7 +370,7 @@ int main(void)
 	  }
 
 	  ultrasound_trigger_func();
-	 ssd1306_DisplayNumber(row);
+	  //ssd1306_DisplayNumber(row);
 	  HAL_Delay(500);
 
 
