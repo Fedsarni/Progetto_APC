@@ -73,6 +73,8 @@ void Error_Handler(void);
 #define C1_GPIO_Port GPIOC
 #define C4_Pin GPIO_PIN_3
 #define C4_GPIO_Port GPIOC
+#define Push_Button_Pin GPIO_PIN_0
+#define Push_Button_GPIO_Port GPIOA
 #define LED_ROSSO_Pin GPIO_PIN_9
 #define LED_ROSSO_GPIO_Port GPIOE
 #define LED_VERDE_Pin GPIO_PIN_11

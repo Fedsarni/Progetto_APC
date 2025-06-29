@@ -17,3 +17,10 @@ void ssd1306_DisplayNumber(int number) {
 	ssd1306_WriteString(s_number, Font_16x26, White);
 	ssd1306_UpdateScreen();
 }
+
+void ssd1306_DisplayString(char * string,SSD1306_Font_t Font) {
+	ssd1306_Fill(Black);
+	ssd1306_SetCursor(3,20);
+	ssd1306_WriteString(string, Font, White);
+	ssd1306_UpdateScreen();
+}

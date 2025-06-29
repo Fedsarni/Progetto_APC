@@ -56,6 +56,7 @@ I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 
 /* USER CODE BEGIN PV */
@@ -74,8 +75,9 @@ uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
 uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
 uint8_t free_ck = 1; //flag per indicare che il posto è libero
-uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
-uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
+uint8_t up_flag = 0; //questo flag simula un finecorsa, indica che la sbarra è alta
+uint8_t down_flag = 1; // questo invece indica quando la sbarre è abbassata = 1
+bool parcheggio_ck = 0; //questo check ci dice se il parcheggio è libero 0 o occupato 1
 char buffer[6];
 uint8_t curr_buffer = 0;
 char key;
@@ -83,6 +85,16 @@ uint8_t row;
 uint8_t col;
 uint16_t col_pins[4] = {GPIO_PIN_2, GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_3};
 uint16_t row_pins[4] = {GPIO_PIN_11, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14};
+uint16_t seconds_elapsed = 0;
+uint16_t elapsed_secs = 0;
+uint32_t elapsed_mins = 0;
+uint16_t overflow = 0;
+typedef struct {
+	uint32_t timestamp;
+	char ID[6];
+}veicolo;
+bool pay = 0;
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -92,6 +104,7 @@ static void MX_I2C1_Init(void);
 static void MX_I2C2_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
+static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
 void ultrasound_trigger_func();
 void init_posto();
@@ -107,6 +120,7 @@ void pagamento();
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+<<<<<<< Updated upstream
 
 char keypad_getkey(void) {
     const char keys[4][4] = {
@@ -139,6 +153,10 @@ char keypad_getkey(void) {
 
     return 0; // Nessun tasto premuto
 }
+=======
+//funzione per regolare l'angolo del servo
+
+>>>>>>> Stashed changes
 
 
 void pagamento(){
@@ -150,12 +168,14 @@ void SetServoAngle(uint8_t angle){
 }
 
 void sbarra_up(){
+		if (down_flag == 0 && up_flag == 1) return;
 		SetServoAngle(90);
 		down_flag = 0;
 		up_flag = 1;
 }
 
 void sbarra_down(){
+		if (down_flag == 1 && up_flag == 0) return;
 		SetServoAngle(0);
 		up_flag = 0;
 		down_flag = 1;
@@ -164,13 +184,13 @@ void sbarra_down(){
 void init_posto(){
 	TurnOnLed(GPIOE,GPIO_PIN_11);
 	TurnOffLed(GPIOE,GPIO_PIN_9);
-	sbarra_up();
+	sbarra_down();
 }
 void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
 	//Aspetta 10us. Siccome il prescaler di TIM2 è 47, ogni conteggio sarà 1us
-	__HAL_TIM_SET_COUNTER(&htim2, 0);
+	__HAL_TIM_SET_COUNTER(&htim2, 0); //nb:per questo conto usiamo un timer con ARR a 32 bit, un po uno spreco
 	while (__HAL_TIM_GET_COUNTER (&htim2) < 10); //Aspettiamo che il conteggio sia 10
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
 }
@@ -233,10 +253,35 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			col = 0;
 		}*/
 
+
+
 }
 
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
+        if (htim->Instance == TIM3) {
+        	seconds_elapsed++;
+        	if (seconds_elapsed >= 30) {
+        		// 30 secondi trascorsi!
+        		// Esegui azione
+        		HAL_TIM_Base_Stop_IT(&htim3);
+        		sbarra_down();
+        		parcheggio_ck = 0;
+        		seconds_elapsed = 0;
+       		    ssd1306_DisplayString(" ",Font_16x15);
+        	}
+        }
+        if(htim->Instance == TIM2){
+        	overflow ++;
+        	if(overflow >= 100){
+        		elapsed_secs ++;
+        		if (elapsed_secs >= 60){
+        			 elapsed_mins ++;
+        			 elapsed_secs = 0;
+        		}
+        	}
+        }
 
-
+}
 
 
 
@@ -327,6 +372,7 @@ int main(void)
   MX_I2C2_Init();
   MX_TIM4_Init();
   MX_TIM2_Init();
+  MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
@@ -334,12 +380,9 @@ int main(void)
    // Genera stringa casuale
   init_posto();
   ssd1306_Init();
-  //questa va spostata in un altra logica
-  generate_random_string();
-
-
-
-
+  veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
+  int elapsed = 0;
+  bool gen = 1;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -349,8 +392,9 @@ int main(void)
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
-	//ssd1306_WriteString(buffer, Font_16x26, White);
+	 if(gen) generate_random_string();
 
+<<<<<<< Updated upstream
 	  key = keypad_getkey();
 	  if (key != 0) {
 		  buffer[0]=key;
@@ -367,10 +411,61 @@ int main(void)
 			  draw_qr_on_display2(qr_string);
 		  }
 		  ultrasound_trigger_func();
+=======
+	 if(GPIO_PIN_SET == HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0)){
+		  sbarra_up();
+		  //questo flag indica la presenza di una macchina alla sbarra FF: potrebbe essere controllato tramite un secondo sensore ad ultrasuoni
+		  parcheggio_ck = 1;
+		   // genera la stringa random
+			  //seconds_elapsed = 0;
+		  __HAL_TIM_SET_COUNTER(&htim3, 0);
+		  HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
+		  gen = 0;
+>>>>>>> Stashed changes
 	  }
 
+	  if (parcheggio_ck){
+		  v.timestamp = elapsed_mins; //associa il timestamp al veicolo
+		  strcpy(v.ID,qr_string); //associa la stringa al veicolo
+		  draw_qr_on_display2(qr_string); //mostra il qr
+	  }
+
+	  if (occupato_ck){
+		  ssd1306_DisplayString("Occupato",Font_11x18);
+		  parcheggio_ck = 0; //qua simulo l'entrata della macchina se avessi il sensore non ne avrei bisogno
+		  gen = 1;
+	  }
+
+	  if(keyPressed == '#') {
+		  pay = 1;
+		  elapsed = elapsed_mins - v.timestamp;
+		  char str[30];
+		  snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
+		  ssd1306_DisplayString(str,Font_6x8);
+	  }
+
+	  if(pay){
+		  int curr = 0;
+		  /*while(curr <= 6){
+			  buffer[curr] = keyPressed;
+
+			  ssd1306_DisplayString(buffer[curr]);
+			  curr ++;
+		  }*/
+		  if (!strcmp(v.ID,buffer)){
+			  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
+		  }
+	  }
 	  ultrasound_trigger_func();
+<<<<<<< Updated upstream
 	  //ssd1306_DisplayNumber(row);
+=======
+	  /*ssd1306_Fill(Black);
+	  ssd1306_SetCursor(45,20);
+	  ssd1306_WriteChar(keyPressed, Font_16x26, White);
+	  ssd1306_UpdateScreen();
+	  ssd1306_DisplayNumber(seconds_elapsed);*/
+>>>>>>> Stashed changes
 	  HAL_Delay(500);
 
 
@@ -570,6 +665,51 @@ static void MX_TIM2_Init(void)
 }
 
 /**
+  * @brief TIM3 Initialization Function
+  * @param None
+  * @retval None
+  */
+static void MX_TIM3_Init(void)
+{
+
+  /* USER CODE BEGIN TIM3_Init 0 */
+
+  /* USER CODE END TIM3_Init 0 */
+
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
+  TIM_MasterConfigTypeDef sMasterConfig = {0};
+
+  /* USER CODE BEGIN TIM3_Init 1 */
+
+  /* USER CODE END TIM3_Init 1 */
+  htim3.Instance = TIM3;
+  htim3.Init.Prescaler = 7200-1;
+  htim3.Init.CounterMode = TIM_COUNTERMODE_UP;
+  htim3.Init.Period = 10000-1;
+  htim3.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
+  htim3.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  if (HAL_TIM_Base_Init(&htim3) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim3, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sMasterConfig.MasterOutputTrigger = TIM_TRGO_RESET;
+  sMasterConfig.MasterSlaveMode = TIM_MASTERSLAVEMODE_DISABLE;
+  if (HAL_TIMEx_MasterConfigSynchronization(&htim3, &sMasterConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  /* USER CODE BEGIN TIM3_Init 2 */
+
+  /* USER CODE END TIM3_Init 2 */
+
+}
+
+/**
   * @brief TIM4 Initialization Function
   * @param None
   * @retval None
@@ -643,9 +783,9 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
@@ -669,6 +809,12 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
+
+  /*Configure GPIO pin : Push_Button_Pin */
+  GPIO_InitStruct.Pin = Push_Button_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_INPUT;
+  GPIO_InitStruct.Pull = GPIO_PULLDOWN;
+  HAL_GPIO_Init(Push_Button_GPIO_Port, &GPIO_InitStruct);
 
   /*Configure GPIO pins : LED_ROSSO_Pin LED_VERDE_Pin */
   GPIO_InitStruct.Pin = LED_ROSSO_Pin|LED_VERDE_Pin;

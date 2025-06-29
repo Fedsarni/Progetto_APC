@@ -1,3 +1,4 @@
+<<<<<<< Updated upstream
 ../Core/Src/main.c:111:6:keypad_getkey	6
 ../Core/Src/main.c:144:6:pagamento	1
 ../Core/Src/main.c:147:6:SetServoAngle	1
@@ -18,3 +19,26 @@
 ../Core/Src/main.c:577:13:MX_TIM4_Init	6
 ../Core/Src/main.c:636:13:MX_GPIO_Init	1
 ../Core/Src/main.c:710:6:Error_Handler	1
+=======
+../Core/Src/main.c:130:6:pagamento	1
+../Core/Src/main.c:133:6:SetServoAngle	1
+../Core/Src/main.c:138:6:sbarra_up	3
+../Core/Src/main.c:145:6:sbarra_down	3
+../Core/Src/main.c:152:6:init_posto	1
+../Core/Src/main.c:157:6:ultrasound_trigger_func	2
+../Core/Src/main.c:168:6:HAL_GPIO_EXTI_Callback	40
+../Core/Src/main.c:309:6:HAL_TIM_PeriodElapsedCallback	6
+../Core/Src/main.c:338:6:TurnOnLed	1
+../Core/Src/main.c:343:6:TurnOffLed	1
+../Core/Src/main.c:348:6:generate_random_string	2
+../Core/Src/main.c:355:6:draw_qr_on_display2	7
+../Core/Src/main.c:395:5:main	8
+../Core/Src/main.c:508:6:SystemClock_Config	4
+../Core/Src/main.c:557:13:MX_I2C1_Init	4
+../Core/Src/main.c:605:13:MX_I2C2_Init	4
+../Core/Src/main.c:653:13:MX_TIM2_Init	4
+../Core/Src/main.c:698:13:MX_TIM3_Init	4
+../Core/Src/main.c:743:13:MX_TIM4_Init	6
+../Core/Src/main.c:802:13:MX_GPIO_Init	1
+../Core/Src/main.c:885:6:Error_Handler	1
+>>>>>>> Stashed changes

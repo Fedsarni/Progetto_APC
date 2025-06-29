@@ -1,8 +1,14 @@
 Core/Src/File nostri/number_display.o: \
  ../Core/Src/File\ nostri/number_display.c \
+<<<<<<< Updated upstream
  /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Core/Inc/File\ nostri/number_display.h \
  /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h \
  /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_conf.h \
+=======
+ /home/fr3nk/Documents/GitHub/Progetto_APC/Core/Inc/File\ nostri/number_display.h \
+ /home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h \
+ /home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_conf.h \
+>>>>>>> Stashed changes
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal.h \
  ../Core/Inc/stm32f3xx_hal_conf.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_rcc.h \
@@ -31,11 +37,19 @@ Core/Src/File nostri/number_display.o: \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_pwr_ex.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_tim.h \
  ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_tim_ex.h \
+<<<<<<< Updated upstream
  /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_fonts.h \
  /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h
 /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Core/Inc/File\ nostri/number_display.h:
 /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h:
 /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_conf.h:
+=======
+ /home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_fonts.h \
+ /home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h
+/home/fr3nk/Documents/GitHub/Progetto_APC/Core/Inc/File\ nostri/number_display.h:
+/home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h:
+/home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_conf.h:
+>>>>>>> Stashed changes
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal.h:
 ../Core/Inc/stm32f3xx_hal_conf.h:
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_rcc.h:
@@ -64,5 +78,10 @@ Core/Src/File nostri/number_display.o: \
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_pwr_ex.h:
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_tim.h:
 ../Drivers/STM32F3xx_HAL_Driver/Inc/stm32f3xx_hal_tim_ex.h:
+<<<<<<< Updated upstream
 /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_fonts.h:
 /Users/federicasarnataro/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h:
+=======
+/home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306_fonts.h:
+/home/fr3nk/Documents/GitHub/Progetto_APC/Drivers/OLED/ssd1306.h:
+>>>>>>> Stashed changes
