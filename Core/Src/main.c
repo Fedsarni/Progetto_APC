@@ -112,8 +112,8 @@ void scan_colonne();
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
 //funzione per regolare l'angolo del servo
+
 void scan_colonne() {
-    col = 0xFF;
     col = 0xFF; 
     for (int c = 0; c < 4; c++) {
         for (int i = 0; i < 4; i++) {
