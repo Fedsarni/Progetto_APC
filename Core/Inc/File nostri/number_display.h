@@ -12,5 +12,5 @@
 #include "ssd1306_fonts.h"
 
 void ssd1306_DisplayNumber(int number);
-
+void ssd1306_DisplayString(char * string,SSD1306_Font_t Font);
 #endif /* INC_NUMBER_DISPLAY_H_ */
