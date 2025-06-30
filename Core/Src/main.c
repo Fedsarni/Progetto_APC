@@ -84,6 +84,7 @@ uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
 bool parcheggio_ck = 0;
 char buffer[6];
 uint8_t curr_buffer = 0;
+int curr;
 char key;
 uint8_t row;
 uint8_t col;
@@ -471,12 +472,14 @@ int main(void)
 	  }
 
 	  if(keyPressed == '#'&&parcheggio_ck == 0) {
+		  keyPressed == 'V';
 		  if (automobile){
 			  pay = 1;
+			  curr = 0;
 			  elapsed = elapsed_mins - v.timestamp;
 			  char str[30];
-			  snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
-			  ssd1306_DisplayString(str,Font_6x8);
+			  //snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
+			  //ssd1306_DisplayString(str,Font_6x8);
 
 		  }else{
 			  ssd1306_DisplayString("non ci sono auto",Font_6x8);
@@ -484,13 +487,27 @@ int main(void)
 	   }
 
 		  if(pay){
-			  int curr = 0;
+			  if(keyPressed != 'V' && keyPressed != '#') {
+				  buffer[curr]=keyPressed;
+				  keyPressed = 'V';
+				  curr++;
+				  if(curr==6) curr=0;
+			  }
 			  /*while(curr <= 6){
 				  buffer[curr] = keyPressed;
 
 				  ssd1306_DisplayString(buffer[curr]);
 				  curr ++;
 			  }*/
+			  /*char* display_buffer = NULL;
+			  if(curr!=0) display_buffer = (char*)malloc(curr*sizeof(char));
+			  if (display_buffer) {
+				  strncpy(display_buffer,buffer,curr);
+				  ssd1306_DisplayString(display_buffer,Font_6x8);
+			  }
+			  else ssd1306_DisplayString("Inserisci codice",Font_6x8);
+			  free(display_buffer);*/
+			  ssd1306_DisplayString(buffer,Font_6x8);
 			  if (!strcmp(v.ID,buffer)){
 				  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
 			  }
