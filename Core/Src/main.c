@@ -324,7 +324,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         		sbarra_down();
         		parcheggio_ck = 0;
         		seconds_elapsed = 0;
-       		    ssd1306_DisplayString(" ",Font_16x15);
         	}
         }
         if(htim->Instance == TIM2){
@@ -440,7 +439,8 @@ int main(void)
   //questa va spostata in un altra logica
   veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
   int elapsed = 0;
-
+  char* display_buffer = NULL;
+  bool ok;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -472,10 +472,10 @@ int main(void)
 	  }
 
 	  if(keyPressed == '#'&&parcheggio_ck == 0) {
-		  keyPressed == 'V';
 		  if (automobile){
 			  pay = 1;
 			  curr = 0;
+			  keyPressed = 'V';
 			  elapsed = elapsed_mins - v.timestamp;
 			  char str[30];
 			  //snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
@@ -487,31 +487,50 @@ int main(void)
 	   }
 
 		  if(pay){
-			  if(keyPressed != 'V' && keyPressed != '#') {
+			  if (keyPressed != 'V'&&curr<6){
 				  buffer[curr]=keyPressed;
 				  keyPressed = 'V';
 				  curr++;
-				  if(curr==6) curr=0;
+				  buffer[5]='\0';
+				  ssd1306_DisplayString(buffer,Font_6x8);
+				  HAL_Delay(100);
+			  }else if (curr == 5){
+				  if(!strcmp("11111",buffer)){
+					  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
+					  pay = 0;
+					  curr = 0;
+					  buffer[0]=' ';
+					  buffer[1]=' ';
+					  buffer[2]=' ';
+					  buffer[3]=' ';
+					  buffer[4]=' ';
+					  buffer[5]=' ';
+					  automobile = 0;
+					  gen = 1;
+					  show_occupato = 0;
+					  parcheggio_ck = 0;
+					  HAL_Delay(100);
+				  }else{
+					  ssd1306_DisplayString("inserisci pin",Font_6x8);
+					  keyPressed = 'V';
+					  curr = 0;
+					  buffer[0]=' ';
+					  buffer[1]=' ';
+					  buffer[2]=' ';
+					  buffer[3]=' ';
+					  buffer[4]=' ';
+					  buffer[5]=' ';
+					  HAL_Delay(100);
+				  }
 			  }
+
+		  }
 			  /*while(curr <= 6){
 				  buffer[curr] = keyPressed;
 
 				  ssd1306_DisplayString(buffer[curr]);
 				  curr ++;
 			  }*/
-			  /*char* display_buffer = NULL;
-			  if(curr!=0) display_buffer = (char*)malloc(curr*sizeof(char));
-			  if (display_buffer) {
-				  strncpy(display_buffer,buffer,curr);
-				  ssd1306_DisplayString(display_buffer,Font_6x8);
-			  }
-			  else ssd1306_DisplayString("Inserisci codice",Font_6x8);
-			  free(display_buffer);*/
-			  ssd1306_DisplayString(buffer,Font_6x8);
-			  if (!strcmp(v.ID,buffer)){
-				  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
-			  }
-		  }
 	  ultrasound_trigger_func();
 	  HAL_Delay(500);
 
