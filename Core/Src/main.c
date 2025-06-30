@@ -88,8 +88,10 @@ int curr;
 char key;
 uint8_t row;
 uint8_t col;
-uint16_t col_pins[4] = {GPIO_PIN_2, GPIO_PIN_0, GPIO_PIN_1, GPIO_PIN_3};
+GPIO_TypeDef* col_ports[4] = {C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port, C4_GPIO_Port};
+uint16_t col_pins[4] = {C1_Pin, C2_Pin, C3_Pin, C4_Pin};
 uint16_t row_pins[4] = {GPIO_PIN_11, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14};
+char keypad[4][4] = {{'1','2','3','A'},{'4','5','6','B'},{'7','8','9','C'},{'*','0','#','D'}};
 uint16_t seconds_elapsed = 0;
 uint16_t elapsed_secs = 0;
 uint32_t elapsed_mins = 0;
@@ -214,6 +216,30 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
 
+
+	    for(int i=0;i<3;i++) {
+	    	for(int j=0;j<3;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
+	    	HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
+	    	if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    		    {
+	    		      keyPressed = keypad[0][i];
+	    		    }
+	    		    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    		    {
+	    		      keyPressed = keypad[1][i];
+
+	    		    }
+	    		    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    		    {
+	    		      keyPressed = keypad[2][i];
+
+	    		    }
+	    		    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    		    {
+	    		      keyPressed = keypad[3][i];
+	    		    }
+	    }
+/*
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
 	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
 	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
@@ -299,7 +325,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    {
 	      keyPressed = 'D'; //ASCII value of 1
 	    }
-
+*/
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
 	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
 	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
