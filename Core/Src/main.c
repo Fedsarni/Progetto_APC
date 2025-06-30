@@ -487,42 +487,43 @@ int main(void)
 	   }
 
 		  if(pay){
-			  if (keyPressed != 'V'&&curr<6){
+			  if (keyPressed != 'V'){
 				  buffer[curr]=keyPressed;
-				  keyPressed = 'V';
-				  curr++;
-				  buffer[5]='\0';
-				  ssd1306_DisplayString(buffer,Font_6x8);
-				  HAL_Delay(100);
-			  }else if (curr == 5){
-				  if(!strcmp("11111",buffer)){
-					  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
-					  pay = 0;
-					  curr = 0;
-					  buffer[0]=' ';
-					  buffer[1]=' ';
-					  buffer[2]=' ';
-					  buffer[3]=' ';
-					  buffer[4]=' ';
-					  buffer[5]=' ';
-					  automobile = 0;
-					  gen = 1;
-					  show_occupato = 0;
-					  parcheggio_ck = 0;
-					  HAL_Delay(100);
-				  }else{
-					  ssd1306_DisplayString("inserisci pin",Font_6x8);
 					  keyPressed = 'V';
-					  curr = 0;
-					  buffer[0]=' ';
-					  buffer[1]=' ';
-					  buffer[2]=' ';
-					  buffer[3]=' ';
-					  buffer[4]=' ';
-					  buffer[5]=' ';
+					  curr++;
+					  buffer[5]='\0';
+					  ssd1306_DisplayString(buffer,Font_6x8);
 					  HAL_Delay(100);
+					  if (curr>=5) {
+						  if (!strcmp("11111",buffer)){
+							  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
+							  pay = 0;
+							  curr = 0;
+							  buffer[0]=' ';
+							  buffer[1]=' ';
+							  buffer[2]=' ';
+							  buffer[3]=' ';
+							  buffer[4]=' ';
+							  buffer[5]=' ';
+							  automobile = 0;
+							  gen = 1;
+							  show_occupato = 0;
+							  parcheggio_ck = 0;
+							  HAL_Delay(100);
+						  }else{
+							  ssd1306_DisplayString("inserisci pin",Font_6x8);
+							  keyPressed = 'V';
+							  curr = 0;
+							  buffer[0]=' ';
+							  buffer[1]=' ';
+							  buffer[2]=' ';
+							  buffer[3]=' ';
+							  buffer[4]=' ';
+							  buffer[5]=' ';
+							  HAL_Delay(100);
+						  }
+					  }
 				  }
-			  }
 
 		  }
 			  /*while(curr <= 6){
