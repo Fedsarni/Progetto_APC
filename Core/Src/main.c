@@ -114,6 +114,7 @@ void scan_colonne();
 //funzione per regolare l'angolo del servo
 void scan_colonne() {
     col = 0xFF;
+    col = 0xFF; 
     for (int c = 0; c < 4; c++) {
         for (int i = 0; i < 4; i++) {
             HAL_GPIO_WritePin(GPIOC, col_pins[i], GPIO_PIN_SET);
