@@ -56,6 +56,7 @@ I2C_HandleTypeDef hi2c1;
 I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
+TIM_HandleTypeDef htim3;
 TIM_HandleTypeDef htim4;
 DMA_HandleTypeDef hdma_tim4_ch1;
 
@@ -70,6 +71,7 @@ char distance_string[4];
 uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
 uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
+<<<<<<< Updated upstream
 
 // defines per led
 #define LED_NUMBER      1
