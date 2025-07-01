@@ -207,7 +207,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		 }
 
 	currentMillis = HAL_GetTick();
-	if (currentMillis - previousMillis > 10) {
+	if (currentMillis - previousMillis > 30) {
 	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 to GPIO_INPUT*/
 	    GPIO_InitStructPrivate.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin;
 	    GPIO_InitStructPrivate.Mode = GPIO_MODE_INPUT;
@@ -216,8 +216,8 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
 
 	    keyPressed = ' ';
-	    for(int i=0;i<3;i++) {
-	    	for(int j=0;j<3;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
+	    for(int i=0;i<4;i++) {
+	    	for(int j=0;j<4;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
 	    	HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
 	    	if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
 	    		    {
@@ -244,6 +244,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    	if (keyPressed != ' ') {
 	    			    buffer[curr]=keyPressed;
 	    			    curr++;
+	    			    keyPressed = ' ';
 	    		    }
 	    			  ssd1306_DisplayString(buffer,Font_6x8);
 	    			  if(curr>=5) {
