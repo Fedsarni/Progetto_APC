@@ -160,6 +160,9 @@ void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
 	HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
+	HAL_Delay(0.01);
+	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+    HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
 }
 
 
@@ -206,7 +209,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		 }
 
 	currentMillis = HAL_GetTick();
-	if (currentMillis - previousMillis > 50) {
+	if (currentMillis - previousMillis > 10) {
 	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 to GPIO_INPUT*/
 	    GPIO_InitStructPrivate.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin;
 	    GPIO_InitStructPrivate.Mode = GPIO_MODE_INPUT;
@@ -248,20 +251,20 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    previousMillis = currentMillis;
 	  }
 
-	  if(GPIO_Pin == ECHO2_PIN_Pin){
+	  /*if(GPIO_Pin == ECHO2_PIN_Pin){
 		  if(HAL_GPIO_ReadPin(GPIOA,ECHO2_PIN_Pin)==GPIO_PIN_SET){
-			  echo_start_time2 = __HAL_TIM_GET_COUNTER (&htim2);
+			start_time_2 = __HAL_TIM_GET_COUNTER (&htim2);
 		  }else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
-			echo_stop_time2 = __HAL_TIM_GET_COUNTER (&htim2);
-			distance2= (echo_stop_time2-echo_start_time2)* 0.034/2;//Formula data
+			stop_time_2 = __HAL_TIM_GET_COUNTER (&htim2);
+			distance2= (stop_time_2-start_time_2)* 0.034/2;//Formula data
 			if (distance2 >= 45) distance = 40;
 		  }
 		  if(distance2<20){
-			  sbarra=1;
+		//	  sbarra=1;
 		  }else{
 			  sbarra = 0;
 		  }
-	  }
+	  }*/
 
 }
 
@@ -269,23 +272,21 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM3) {
         	seconds_elapsed++;
-        	if (seconds_elapsed >= 10) {
+        	if ((seconds_elapsed % 10 == 0)) {
         		// 30 secondi trascorsi!
         		// Esegui azione
         		HAL_TIM_Base_Stop_IT(&htim3);
         		sbarra_down();
-        		seconds_elapsed = 0;
+
         	}
         }
         if(htim->Instance == TIM2){
-        	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
-            HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
         	overflow ++;
         	if(overflow >= 100){
         		elapsed_secs ++;
-        		if (elapsed_secs >= 60){
+        		overflow = 0;
+        		if ((elapsed_secs % 60) == 0){
         			 elapsed_mins ++;
-        			 elapsed_secs = 0;
         		}
         	}
         }
@@ -383,7 +384,8 @@ int main(void)
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
   __HAL_TIM_SET_COUNTER(&htim2, 0);
-  HAL_TIM_Base_Start(&htim2);
+  //HAL_TIM_Base_Start(&htim2);
+  HAL_TIM_Base_Start_IT(&htim2); // Avvia il timer
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
   HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_1);
    // Genera stringa casuale
@@ -426,10 +428,11 @@ int main(void)
 
 	  if(keyPressed == '#'&&sbarra == 0) {
 		  if (automobile){
+
 			  pay = 1;
 			  curr = 0;
 			  keyPressed = 'V';
-			  elapsed = elapsed_secs - v.timestamp;
+			  elapsed = elapsed_secs- v.timestamp;
 			  char str[30];
 			  snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
 			  ssd1306_DisplayString(str,Font_6x8);
@@ -445,7 +448,7 @@ int main(void)
 					  curr++;
 					  buffer[5]='\0';
 					  ssd1306_DisplayString(buffer,Font_6x8);
-					  HAL_Delay(100);
+					 // HAL_Delay(100);
 					  if (curr>=5) {
 						  if (!strcmp("11111",buffer)){
 							  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
@@ -461,7 +464,7 @@ int main(void)
 							  gen = 1;
 							  show_occupato = 0;
 							  sbarra = 0;
-							  HAL_Delay(100);
+							  //HAL_Delay(100);
 						  }else{
 							  ssd1306_DisplayString("inserisci pin",Font_6x8);
 							  keyPressed = 'V';
@@ -472,7 +475,7 @@ int main(void)
 							  buffer[3]=' ';
 							  buffer[4]=' ';
 							  buffer[5]=' ';
-							  HAL_Delay(100);
+							  //HAL_Delay(100);
 						  }
 					  }
 				  }
