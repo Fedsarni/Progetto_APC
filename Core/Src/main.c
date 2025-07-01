@@ -160,9 +160,6 @@ void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
 	HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
-	HAL_Delay(0.01);
-	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
-    HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
 }
 
 
@@ -250,6 +247,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
 	    previousMillis = currentMillis;
 	  }
+//============= ISR SECONDO SENSORE ===================
 
 	  /*if(GPIO_Pin == ECHO2_PIN_Pin){
 		  if(HAL_GPIO_ReadPin(GPIOA,ECHO2_PIN_Pin)==GPIO_PIN_SET){
@@ -282,6 +280,8 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         }
         if(htim->Instance == TIM2){
         	overflow ++;
+        		HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+        	    HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
         	if(overflow >= 100){
         		elapsed_secs ++;
         		overflow = 0;
