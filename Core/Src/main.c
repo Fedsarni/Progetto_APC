@@ -187,6 +187,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			          occupato_ck  = 1;
 			          if(!pay){
 			        	  show_occupato = 1;
+			        	  sbarra = 0;
 			    	  	  automobile = 1;
 			       	  	  gen = 1;
 			          }
@@ -214,7 +215,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
 
-
+	    keyPressed = ' ';
 	    for(int i=0;i<3;i++) {
 	    	for(int j=0;j<3;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
 	    	HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
@@ -237,6 +238,35 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    		      keyPressed = keypad[3][i];
 	    		    }
 	    }
+
+
+	    if(pay){
+	    	if (keyPressed != ' ') {
+	    			    buffer[curr]=keyPressed;
+	    			    curr++;
+	    		    }
+	    			  ssd1306_DisplayString(buffer,Font_6x8);
+	    			  if(curr>=5) {
+	    				  if (!strcmp("11111",buffer)){
+	    					  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
+	    					  pay = 0;
+	    					  curr = 0;
+	    					  strcpy(buffer,"     ");
+	    					  automobile = 0;
+	    					  gen = 1;
+	    					  show_occupato = 0;
+	    					  //sbarra = 0;
+	    					  //HAL_Delay(100);
+	    				  }else{
+	    					  ssd1306_DisplayString("inserisci pin",Font_6x8);
+	    					  curr = 0;
+	    					  strcpy(buffer,"     ");
+	    					  //HAL_Delay(100);
+	    				  }
+	    			  }
+
+	    		  }
+
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
 	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
 	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
@@ -394,8 +424,6 @@ int main(void)
   //questa va spostata in un altra logica
   veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
   int elapsed = 0;
-  char* display_buffer = NULL;
-  bool ok;
   /* USER CODE END 2 */
 
   /* Infinite loop */
@@ -415,23 +443,27 @@ int main(void)
 	  			__HAL_TIM_SET_COUNTER(&htim3, 0);
 	  		    HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
 	  			gen = 0;
+	  			v.timestamp = elapsed_secs; //associa il timestamp al veicolo
+	  			strcpy(v.ID,qr_string); //associa la stringa al veicolo
+	  			sbarra = 1;
 	  		  }
 	  	  }
 	  if (show_occupato){
     	  ssd1306_DisplayString("Occupato",Font_11x18);
 	  }
+
 	  if (sbarra){
-			  v.timestamp = elapsed_secs; //associa il timestamp al veicolo
-			  strcpy(v.ID,qr_string); //associa la stringa al veicolo
+			  //v.timestamp = elapsed_secs; //associa il timestamp al veicolo
+			  //strcpy(v.ID,qr_string); //associa la stringa al veicolo
 			  draw_qr_on_display2(qr_string); //mostra il qr
 	  }
 
-	  if(keyPressed == '#'&&sbarra == 0) {
+	  if(keyPressed == '#' && sbarra == 0) {
 		  if (automobile){
-
+			  keyPressed = ' ';
+			  strcpy(buffer,"     ");
 			  pay = 1;
 			  curr = 0;
-			  keyPressed = 'V';
 			  elapsed = elapsed_secs- v.timestamp;
 			  char str[30];
 			  snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
@@ -440,47 +472,6 @@ int main(void)
 			  ssd1306_DisplayString("non ci sono auto",Font_6x8);
 	      }
 	   }
-
-		  if(pay){
-			  if (keyPressed != 'V'){
-				  buffer[curr]=keyPressed;
-					  keyPressed = 'V';
-					  curr++;
-					  buffer[5]='\0';
-					  ssd1306_DisplayString(buffer,Font_6x8);
-					 // HAL_Delay(100);
-					  if (curr>=5) {
-						  if (!strcmp("11111",buffer)){
-							  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
-							  pay = 0;
-							  curr = 0;
-							  buffer[0]=' ';
-							  buffer[1]=' ';
-							  buffer[2]=' ';
-							  buffer[3]=' ';
-							  buffer[4]=' ';
-							  buffer[5]=' ';
-							  automobile = 0;
-							  gen = 1;
-							  show_occupato = 0;
-							  sbarra = 0;
-							  //HAL_Delay(100);
-						  }else{
-							  ssd1306_DisplayString("inserisci pin",Font_6x8);
-							  keyPressed = 'V';
-							  curr = 0;
-							  buffer[0]=' ';
-							  buffer[1]=' ';
-							  buffer[2]=' ';
-							  buffer[3]=' ';
-							  buffer[4]=' ';
-							  buffer[5]=' ';
-							  //HAL_Delay(100);
-						  }
-					  }
-				  }
-
-		  }
 			  /*while(curr <= 6){
 				  buffer[curr] = keyPressed;
 
