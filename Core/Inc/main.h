@@ -76,6 +76,11 @@ void Error_Handler(void);
 #define C1_GPIO_Port GPIOC
 #define C4_Pin GPIO_PIN_3
 #define C4_GPIO_Port GPIOC
+#define TRIGGER2_PIN_Pin GPIO_PIN_5
+#define TRIGGER2_PIN_GPIO_Port GPIOA
+#define ECHO2_PIN_Pin GPIO_PIN_7
+#define ECHO2_PIN_GPIO_Port GPIOA
+#define ECHO2_PIN_EXTI_IRQn EXTI9_5_IRQn
 #define LED_ROSSO_Pin GPIO_PIN_9
 #define LED_ROSSO_GPIO_Port GPIOE
 #define LED_VERDE_Pin GPIO_PIN_11

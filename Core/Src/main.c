@@ -54,7 +54,6 @@
 
 /* Private variables ---------------------------------------------------------*/
 I2C_HandleTypeDef hi2c1;
-I2C_HandleTypeDef hi2c2;
 
 TIM_HandleTypeDef htim2;
 TIM_HandleTypeDef htim3;
@@ -81,7 +80,7 @@ uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
 uint8_t free_ck = 1; //flag per indicare che il posto è libero
 uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
 uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
-bool parcheggio_ck = 0;
+uint8_t sbarra = 0; //flag che indica se c'è qualcuno alla sbarra
 char buffer[6];
 uint8_t curr_buffer = 0;
 int curr;
@@ -104,14 +103,15 @@ bool pay = 0;
 bool automobile = 0;
 bool gen = 1;
 bool show_occupato = 0;
-
+uint32_t start_time_2 = 0;
+uint32_t stop_time_2 = 0;
+uint16_t distance2 = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
 static void MX_GPIO_Init(void);
 static void MX_I2C1_Init(void);
-static void MX_I2C2_Init(void);
 static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
@@ -159,11 +159,10 @@ void init_posto(){
 void ultrasound_trigger_func(){
 	//Questa funzione invia l'impulso iniziale di 10us
 	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
-	//Aspetta 10us. Siccome il prescaler di TIM2 è 47, ogni conteggio sarà 1us
-	__HAL_TIM_SET_COUNTER(&htim2, 0);
-	while (__HAL_TIM_GET_COUNTER (&htim2) < 10); //Aspettiamo che il conteggio sia 10
-	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+	HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
 }
+
+
 
 //ISR chiamata quando si verifica un qualsiasi evento sull'interfaccia GPIO
 
@@ -188,7 +187,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			          occupato_ck  = 1;
 			          if(!pay){
 			        	  show_occupato = 1;
-			    	  	  parcheggio_ck = 0; //qua simulo l'entrata della macchina se avessi il sensore non ne avrei bisogno
 			    	  	  automobile = 1;
 			       	  	  gen = 1;
 			          }
@@ -208,7 +206,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		 }
 
 	currentMillis = HAL_GetTick();
-	if (currentMillis - previousMillis > 10) {
+	if (currentMillis - previousMillis > 50) {
 	    /*Configure GPIO pins : PB6 PB7 PB8 PB9 to GPIO_INPUT*/
 	    GPIO_InitStructPrivate.Pin = R1_Pin|R2_Pin|R3_Pin|R4_Pin;
 	    GPIO_InitStructPrivate.Mode = GPIO_MODE_INPUT;
@@ -239,93 +237,6 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    		      keyPressed = keypad[3][i];
 	    		    }
 	    }
-/*
-	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
-	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
-	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
-	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
-	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
-	    {
-	      keyPressed = '1'; //ASCII value of D
-	    }
-	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
-	    {
-	      keyPressed = '4'; //ASCII value of C
-
-	    }
-	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
-	    {
-	      keyPressed = '7'; //ASCII value of B
-
-	    }
-	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
-	    {
-	      keyPressed = '*'; //ASCII value of A
-	    }
-
-	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
-	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
-	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
-	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
-	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
-	    {
-	      keyPressed = '2'; //ASCII value of #
-	    }
-	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
-	    {
-	      keyPressed = '5'; //ASCII value of 9
-	    }
-	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
-	    {
-	      keyPressed = '8'; //ASCII value of 6
-	    }
-	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
-	    {
-	      keyPressed = '0'; //ASCII value of 3
-	    }
-
-	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
-	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
-	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
-	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 0);
-	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
-	    {
-	      keyPressed = '3'; //ASCII value of 0
-	    }
-	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
-	    {
-	      keyPressed = '6'; //ASCII value of 8
-	    }
-	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
-	    {
-	      keyPressed = '9'; //ASCII value of 5
-	    }
-	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
-	    {
-	      keyPressed = '#'; //ASCII value of 2
-	    }
-
-	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 0);
-	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 0);
-	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 0);
-	    HAL_GPIO_WritePin(C4_GPIO_Port, C4_Pin, 1);
-	    if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
-	    {
-	      keyPressed = 'A'; //ASCII value of *
-	    }
-	    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
-	    {
-	      keyPressed = 'B'; //ASCII value of 7
-	    }
-	    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
-	    {
-	      keyPressed = 'C'; //ASCII value of 4
-	    }
-	    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
-	    {
-	      keyPressed = 'D'; //ASCII value of 1
-	    }
-*/
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
 	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
 	    HAL_GPIO_WritePin(C3_GPIO_Port, C3_Pin, 1);
@@ -337,22 +248,38 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    previousMillis = currentMillis;
 	  }
 
+	  if(GPIO_Pin == ECHO2_PIN_Pin){
+		  if(HAL_GPIO_ReadPin(GPIOA,ECHO2_PIN_Pin)==GPIO_PIN_SET){
+			  echo_start_time2 = __HAL_TIM_GET_COUNTER (&htim2);
+		  }else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
+			echo_stop_time2 = __HAL_TIM_GET_COUNTER (&htim2);
+			distance2= (echo_stop_time2-echo_start_time2)* 0.034/2;//Formula data
+			if (distance2 >= 45) distance = 40;
+		  }
+		  if(distance2<20){
+			  sbarra=1;
+		  }else{
+			  sbarra = 0;
+		  }
+	  }
+
 }
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM3) {
         	seconds_elapsed++;
-        	if (seconds_elapsed >= 30) {
+        	if (seconds_elapsed >= 10) {
         		// 30 secondi trascorsi!
         		// Esegui azione
         		HAL_TIM_Base_Stop_IT(&htim3);
         		sbarra_down();
-        		parcheggio_ck = 0;
         		seconds_elapsed = 0;
         	}
         }
         if(htim->Instance == TIM2){
+        	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+            HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
         	overflow ++;
         	if(overflow >= 100){
         		elapsed_secs ++;
@@ -451,11 +378,11 @@ int main(void)
   /* Initialize all configured peripherals */
   MX_GPIO_Init();
   MX_I2C1_Init();
-  MX_I2C2_Init();
   MX_TIM4_Init();
   MX_TIM2_Init();
   MX_TIM3_Init();
   /* USER CODE BEGIN 2 */
+  __HAL_TIM_SET_COUNTER(&htim2, 0);
   HAL_TIM_Base_Start(&htim2);
   HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
   HAL_TIM_PWM_Start(&htim4,TIM_CHANNEL_1);
@@ -480,33 +407,32 @@ int main(void)
 	  if(gen) generate_random_string();
 	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0)){
 	  		  sbarra_up();
-	  		  //questo flag indica la presenza di una macchina alla sbarra FF: potrebbe essere controllato tramite un secondo sensore ad ultrasuoni
-	  		  parcheggio_ck = 1;
 	  		   // genera la stringa random
 	  			  //seconds_elapsed = 0;
-	  		  __HAL_TIM_SET_COUNTER(&htim3, 0);
-	  		  HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
-	  		  gen = 0;
+	  		  if(sbarra == 0){
+	  			__HAL_TIM_SET_COUNTER(&htim3, 0);
+	  		    HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
+	  			gen = 0;
+	  		  }
 	  	  }
 	  if (show_occupato){
     	  ssd1306_DisplayString("Occupato",Font_11x18);
 	  }
-	  if (parcheggio_ck){
-			  v.timestamp = elapsed_mins; //associa il timestamp al veicolo
+	  if (sbarra){
+			  v.timestamp = elapsed_secs; //associa il timestamp al veicolo
 			  strcpy(v.ID,qr_string); //associa la stringa al veicolo
 			  draw_qr_on_display2(qr_string); //mostra il qr
 	  }
 
-	  if(keyPressed == '#'&&parcheggio_ck == 0) {
+	  if(keyPressed == '#'&&sbarra == 0) {
 		  if (automobile){
 			  pay = 1;
 			  curr = 0;
 			  keyPressed = 'V';
-			  elapsed = elapsed_mins - v.timestamp;
+			  elapsed = elapsed_secs - v.timestamp;
 			  char str[30];
-			  //snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
-			  //ssd1306_DisplayString(str,Font_6x8);
-
+			  snprintf(str, sizeof(str), "Durata sosta: %d", elapsed);
+			  ssd1306_DisplayString(str,Font_6x8);
 		  }else{
 			  ssd1306_DisplayString("non ci sono auto",Font_6x8);
 	      }
@@ -534,7 +460,7 @@ int main(void)
 							  automobile = 0;
 							  gen = 1;
 							  show_occupato = 0;
-							  parcheggio_ck = 0;
+							  sbarra = 0;
 							  HAL_Delay(100);
 						  }else{
 							  ssd1306_DisplayString("inserisci pin",Font_6x8);
@@ -607,9 +533,8 @@ void SystemClock_Config(void)
   {
     Error_Handler();
   }
-  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1|RCC_PERIPHCLK_I2C2;
+  PeriphClkInit.PeriphClockSelection = RCC_PERIPHCLK_I2C1;
   PeriphClkInit.I2c1ClockSelection = RCC_I2C1CLKSOURCE_HSI;
-  PeriphClkInit.I2c2ClockSelection = RCC_I2C2CLKSOURCE_HSI;
   if (HAL_RCCEx_PeriphCLKConfig(&PeriphClkInit) != HAL_OK)
   {
     Error_Handler();
@@ -661,54 +586,6 @@ static void MX_I2C1_Init(void)
   /* USER CODE BEGIN I2C1_Init 2 */
 
   /* USER CODE END I2C1_Init 2 */
-
-}
-
-/**
-  * @brief I2C2 Initialization Function
-  * @param None
-  * @retval None
-  */
-static void MX_I2C2_Init(void)
-{
-
-  /* USER CODE BEGIN I2C2_Init 0 */
-
-  /* USER CODE END I2C2_Init 0 */
-
-  /* USER CODE BEGIN I2C2_Init 1 */
-
-  /* USER CODE END I2C2_Init 1 */
-  hi2c2.Instance = I2C2;
-  hi2c2.Init.Timing = 0x00201D2B;
-  hi2c2.Init.OwnAddress1 = 0;
-  hi2c2.Init.AddressingMode = I2C_ADDRESSINGMODE_7BIT;
-  hi2c2.Init.DualAddressMode = I2C_DUALADDRESS_DISABLE;
-  hi2c2.Init.OwnAddress2 = 0;
-  hi2c2.Init.OwnAddress2Masks = I2C_OA2_NOMASK;
-  hi2c2.Init.GeneralCallMode = I2C_GENERALCALL_DISABLE;
-  hi2c2.Init.NoStretchMode = I2C_NOSTRETCH_DISABLE;
-  if (HAL_I2C_Init(&hi2c2) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Analogue filter
-  */
-  if (HAL_I2CEx_ConfigAnalogFilter(&hi2c2, I2C_ANALOGFILTER_ENABLE) != HAL_OK)
-  {
-    Error_Handler();
-  }
-
-  /** Configure Digital filter
-  */
-  if (HAL_I2CEx_ConfigDigitalFilter(&hi2c2, 0) != HAL_OK)
-  {
-    Error_Handler();
-  }
-  /* USER CODE BEGIN I2C2_Init 2 */
-
-  /* USER CODE END I2C2_Init 2 */
 
 }
 
@@ -876,19 +753,19 @@ static void MX_GPIO_Init(void)
   /* GPIO Ports Clock Enable */
   __HAL_RCC_GPIOC_CLK_ENABLE();
   __HAL_RCC_GPIOF_CLK_ENABLE();
+  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOE_CLK_ENABLE();
   __HAL_RCC_GPIOD_CLK_ENABLE();
-  __HAL_RCC_GPIOA_CLK_ENABLE();
   __HAL_RCC_GPIOB_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOC, C2_Pin|C3_Pin|C1_Pin|C4_Pin, GPIO_PIN_SET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOA, TRIGGER2_PIN_Pin|TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(TRIGGER_PIN_GPIO_Port, TRIGGER_PIN_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : R2_Pin R4_Pin R3_Pin R1_Pin */
   GPIO_InitStruct.Pin = R2_Pin|R4_Pin|R3_Pin|R1_Pin;
@@ -903,25 +780,25 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOC, &GPIO_InitStruct);
 
+  /*Configure GPIO pins : TRIGGER2_PIN_Pin TRIGGER_PIN_Pin */
+  GPIO_InitStruct.Pin = TRIGGER2_PIN_Pin|TRIGGER_PIN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : ECHO2_PIN_Pin ECHO_PIN_Pin */
+  GPIO_InitStruct.Pin = ECHO2_PIN_Pin|ECHO_PIN_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
   /*Configure GPIO pins : LED_ROSSO_Pin LED_VERDE_Pin */
   GPIO_InitStruct.Pin = LED_ROSSO_Pin|LED_VERDE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOE, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : TRIGGER_PIN_Pin */
-  GPIO_InitStruct.Pin = TRIGGER_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
-  HAL_GPIO_Init(TRIGGER_PIN_GPIO_Port, &GPIO_InitStruct);
-
-  /*Configure GPIO pin : ECHO_PIN_Pin */
-  GPIO_InitStruct.Pin = ECHO_PIN_Pin;
-  GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING_FALLING;
-  GPIO_InitStruct.Pull = GPIO_NOPULL;
-  HAL_GPIO_Init(ECHO_PIN_GPIO_Port, &GPIO_InitStruct);
 
   /* EXTI interrupt init*/
   HAL_NVIC_SetPriority(EXTI9_5_IRQn, 0, 0);
