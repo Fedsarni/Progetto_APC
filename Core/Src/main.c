@@ -42,7 +42,7 @@
 /* USER CODE BEGIN PD */
 #define TRIG_PORT GPIOA
 #define ECHO_PORT GPIOA
-
+#define ENTRANCE_TIME 10
 #define SCALE 3
 
 /* USER CODE END PD */
@@ -80,7 +80,7 @@ uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
 uint8_t free_ck = 1; //flag per indicare che il posto è libero
 uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
 uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
-uint8_t sbarra = 0; //flag che indica se c'è qualcuno alla sbarra
+uint8_t atEntrance = 0; //flag che indica se c'è qualcuno alla sbarra
 char buffer[6];
 uint8_t curr_buffer = 0;
 int curr;
@@ -106,8 +106,16 @@ bool show_occupato = 0;
 uint32_t start_time_2 = 0;
 uint32_t stop_time_2 = 0;
 uint16_t distance2 = 0;
-bool show = 0;
+bool showQrCode = 0;
 bool next_char = 1;
+
+//VARIABILI DEL REFACTOR
+bool welcome = 1;
+bool warningAtEnter = 0;
+bool parkingChk = 0;
+bool seatChk = 0;
+bool lock = 0;
+bool paid = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -118,7 +126,7 @@ static void MX_TIM4_Init(void);
 static void MX_TIM2_Init(void);
 static void MX_TIM3_Init(void);
 /* USER CODE BEGIN PFP */
-void ultrasound_trigger_func();
+void ultrasound_trigger_func(const int sensor);
 void init_posto();
 void sbarra_up();
 void sbarra_down();
@@ -158,10 +166,10 @@ void init_posto(){
 	TurnOffLed(GPIOE,GPIO_PIN_9);
 	sbarra_down();
 }
-void ultrasound_trigger_func(){
+void ultrasound_trigger_func(const int sensor){
 	//Questa funzione invia l'impulso iniziale di 10us
-	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
-	HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
+	if(sensor == 1) HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
+	else if (sensor == 2) HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
 }
 
 
@@ -185,12 +193,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			    	  away_counter = 0;
 			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
-			          free_ck = 0;
-			          occupato_ck  = 1;
-			          if(!pay){
-			        	  show_occupato = 1;
-			    	  	  automobile = 1;
-			          }
+			          seatChk = 1;
 			      }
 
 		 } else {
@@ -199,8 +202,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			 	  if(away_counter >=10){
 			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
 			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
-			 		  occupato_ck = 0;
-			 		  free_ck = 1;
+			 		  seatChk = 0;
 			 	  }
 
 			  }
@@ -214,31 +216,56 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    GPIO_InitStructPrivate.Pull = GPIO_NOPULL;
 	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
+	    if(lock == 0){
+	    	lock = 1;
+	    	for(int i=0;i<4;i++) {
+				for(int j=0;j<4;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
+				HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
+				if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+						{
+						  keyPressed = keypad[0][i];
+						}
+						else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+						{
+						  keyPressed = keypad[1][i];
 
-	    keyPressed = ' ';
-	    for(int i=0;i<4;i++) {
-	    	for(int j=0;j<4;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
-	    	HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
-	    	if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin)&&next_char == 1)
-	    		    {
-	    		      keyPressed = keypad[0][i];
-	    		    }
-	    		    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin)&&next_char == 1)
-	    		    {
-	    		      keyPressed = keypad[1][i];
+						}
+						else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+						{
+						  keyPressed = keypad[2][i];
 
-	    		    }
-	    		    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin)&&next_char == 1)
-	    		    {
-	    		      keyPressed = keypad[2][i];
-
-	    		    }
-	    		    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin)&&next_char == 1)
-	    		    {
-	    		      keyPressed = keypad[3][i];
-	    		    }
+						}
+						else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+						{
+						  keyPressed = keypad[3][i];
+						}
+	    	}
+	    	if (keyPressed == '#' && parkingChk == 1) {
+				keyPressed = ' ';
+				pay = 1;
+			}
+			else if (keyPressed == '*' && parkingChk == 1) {
+				keyPressed = ' ';
+				pay = 0;
+			}
+			else if (keyPressed !=' ') {
+				buffer[curr] = keyPressed;
+				curr++;
+				keyPressed = ' ';
+			}
+	    	lock = 0;
 	    }
-
+	    if(curr>=5) {
+	    			  if (!strcmp("11111",buffer)){
+	    				  paid = 1;
+	    				  pay = 0;
+	    				  curr = 0;
+	    				  strcpy(buffer,"     ");
+	    			  }else{
+	    				  curr = 0;
+	    				  strcpy(buffer,"     ");
+	    			  }
+	    }
 
 
 
@@ -263,28 +290,24 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			if (distance2 >= 45) distance2 = 40;
 		  }
 		  if(distance2<20){
-			  sbarra=1;
-	    	  TurnOffLed(GPIOE, GPIO_PIN_10);   // LED rosso
-
+			  atEntrance = 1;
 		  }else{
-			  sbarra = 0;
-			  gen = 1;
-	    	 // TurnOnLed(GPIOE, GPIO_PIN_10);   // LED rosso
-		  }
+			  atEntrance = 0;
+			  warningAtEnter = 0;
+			}
 	  }
-
-}
+	}
 
 
 void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         if (htim->Instance == TIM3) {
         	seconds_elapsed++;
-        	if ((seconds_elapsed % 10 == 0)) {
-        		// 30 secondi trascorsi!
-        		// Esegui azione
-        		HAL_TIM_Base_Stop_IT(&htim3);
-        		sbarra_down();
-  	    	  TurnOnLed(GPIOE, GPIO_PIN_10);   // LED rosso
+        	if ((seconds_elapsed % ENTRANCE_TIME == 0)) {
+        		// 10 secondi trascorsi!
+				// Esegui azione
+				HAL_TIM_Base_Stop_IT(&htim3);
+				warningAtEnter = 1;
+				atEntrance = 0;
 
           	    //ssd1306_DisplayString(" ",Font_11x18);
         	}
@@ -415,32 +438,101 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	//ssd1306_WriteString(buffer, Font_16x26, White);
-	  if(gen) {
-		  generate_random_string();
-		  gen = 0;
+	  if(welcome){
+		  ssd1306_DisplayString("Benvenuto:)", Font_11x18);
+		  ultrasound_trigger_func(1);
+		  HAL_Delay(500);
 	  }
+	  /*
 	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0)){
 	  		  sbarra_up();
-	  		  show = 1;
+	  		  showQrCode = 1;
 	  		   // genera la stringa random
 	  			  //seconds_elapsed = 0;
-	  		  if(sbarra == 1){
+	  		  if(atEntrance == 1){
 	  			__HAL_TIM_SET_COUNTER(&htim3, 0);
 	  		    HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
 	  			gen = 0;
 	  		  }
-	  	  }
+	  	  }*/
+	  if(atEntrance == 1){	//C'è qualcuno all'ingresso
+		  welcome = 0;
+		  sbarra_up();
+		  generate_random_string();
+		  // genera la stringa random
+		  seconds_elapsed = 0;
+		  __HAL_TIM_SET_COUNTER(&htim3, 0);
+		  HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
+		  while(atEntrance == 1){
+			  char EnterString[50];
+			  sprintf(EnterString, "Hai %hu secondi per entrare!", ENTRANCE_TIME-seconds_elapsed);
+			  ssd1306_DisplayString(EnterString, Font_6x8);
+			  ultrasound_trigger_func(1);
+			  HAL_Delay(500);
+		  }
+		  sbarra_down();
+		  if(warningAtEnter == 0) {
+			  parkingChk = 1;
+			  generate_random_string();
+			  v.timestamp = elapsed_secs; //associa il timestamp al veicolo
+			  strcpy(v.ID,qr_string); //associa la stringa al veicolo
+		  }
+		  else {
+			  while(warningAtEnter == 1) {
+				  ssd1306_DisplayString("Vattene!", Font_11x18);
+				  ultrasound_trigger_func(1);
+				  HAL_Delay(500);
+			  }
+			  welcome = 1;
+		  }
+	  }
+
+	  if(parkingChk == 1) {
+		  ultrasound_trigger_func(2);
+		  HAL_Delay(500);
+		  if(seatChk == 1) {
+			  ssd1306_DisplayString("Occupato :(", Font_11x18);
+			  while (seatChk == 1) {
+				  ultrasound_trigger_func(2);
+				  HAL_Delay(500);
+			  }
+		  }
+		  else draw_qr_on_display2(qr_string);
+		  if(pay == 1) {
+			  elapsed = elapsed_secs- v.timestamp;
+			  char PaymentString[30];
+			  snprintf(PaymentString, sizeof(PaymentString), "Durata sosta: %d", elapsed);
+			  ssd1306_DisplayString(PaymentString, Font_6x8);
+			  HAL_Delay(3000);
+			  strcpy(buffer, "     ");
+			  while (pay == 1) {
+				  char DisplayPIN[50];
+				  sprintf(DisplayPIN,"Codice: %s", buffer);
+				  ssd1306_DisplayString(DisplayPIN,Font_6x8);
+			  }
+			  if(paid == 1) {
+				  ssd1306_DisplayString("Arrivederci UwU",Font_6x8);
+				  sbarra_up();
+				  HAL_Delay(5000);
+				  sbarra_down();
+				  parkingChk = 0;
+				  welcome = 1;
+			  }
+		  }
+	  }
+/*
+
 	  if (show_occupato){
     	  ssd1306_DisplayString("Occupato",Font_11x18);
 	  }
 
-	  if (sbarra == 1 && show == 1){
+	  if (atEntrance == 1 && showQrCode == 1){
 			  v.timestamp = elapsed_secs; //associa il timestamp al veicolo
 			  strcpy(v.ID,qr_string); //associa la stringa al veicolo
 			  draw_qr_on_display2(qr_string); //mostra il qr
 	  }
 
-	  if(keyPressed == '#' && sbarra == 0) {
+	  if(keyPressed == '#' && atEntrance == 0) {
 		  if (automobile){
 			  keyPressed = ' ';
 			  strcpy(buffer,"     ");
@@ -482,15 +574,13 @@ int main(void)
 		    				  }
 		    			  }
 
-		    		  }
+		    		  }*/
 			  /*while(curr <= 6){
 				  buffer[curr] = keyPressed;
 
 				  ssd1306_DisplayString(buffer[curr]);
 				  curr ++;
 			  }*/
-	  ultrasound_trigger_func();
-	  HAL_Delay(500);
 
 
 
