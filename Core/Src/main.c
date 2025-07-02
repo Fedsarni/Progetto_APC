@@ -116,6 +116,8 @@ bool parkingChk = 0;
 bool seatChk = 0;
 bool lock = 0;
 bool paid = 0;
+veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
+
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -256,7 +258,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    	lock = 0;
 	    }
 	    if(curr>=5) {
-	    			  if (!strcmp("11111",buffer)){
+	    			  if (!strcmp(v.ID,buffer)){
 	    				  paid = 1;
 	    				  pay = 0;
 	    				  curr = 0;
@@ -426,7 +428,6 @@ int main(void)
   init_posto();
   ssd1306_Init();
   //questa va spostata in un altra logica
-  veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
   int elapsed = 0;
   /* USER CODE END 2 */
 
@@ -488,6 +489,7 @@ int main(void)
 	  }
 
 	  if(parkingChk == 1) {
+		  paid = 0;
 		  ultrasound_trigger_func(2);
 		  HAL_Delay(500);
 		  if(seatChk == 1) {
