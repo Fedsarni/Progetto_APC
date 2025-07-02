@@ -106,6 +106,7 @@ bool show_occupato = 0;
 uint32_t start_time_2 = 0;
 uint32_t stop_time_2 = 0;
 uint16_t distance2 = 0;
+bool show = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -187,9 +188,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			          occupato_ck  = 1;
 			          if(!pay){
 			        	  show_occupato = 1;
-			        	  sbarra = 0;
 			    	  	  automobile = 1;
-			       	  	  gen = 1;
 			          }
 			      }
 
@@ -249,7 +248,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    			  ssd1306_DisplayString(buffer,Font_6x8);
 	    			  if(curr>=5) {
 	    				  if (!strcmp("11111",buffer)){
-	    					  ssd1306_DisplayString("Arrivederci ^w^",Font_6x8);
+	    					  ssd1306_DisplayString("Arrivederci UwU",Font_6x8);
 	    					  pay = 0;
 	    					  curr = 0;
 	    					  strcpy(buffer,"     ");
@@ -280,20 +279,22 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	  }
 //============= ISR SECONDO SENSORE ===================
 
-	  /*if(GPIO_Pin == ECHO2_PIN_Pin){
+	  if(GPIO_Pin == ECHO2_PIN_Pin){
 		  if(HAL_GPIO_ReadPin(GPIOA,ECHO2_PIN_Pin)==GPIO_PIN_SET){
 			start_time_2 = __HAL_TIM_GET_COUNTER (&htim2);
 		  }else { //Quando ECHO si abbassa si smette di contare, si calcola la distanza e la si invia
 			stop_time_2 = __HAL_TIM_GET_COUNTER (&htim2);
 			distance2= (stop_time_2-start_time_2)* 0.034/2;//Formula data
-			if (distance2 >= 45) distance = 40;
+			if (distance2 >= 45) distance2 = 40;
 		  }
 		  if(distance2<20){
-		//	  sbarra=1;
+			  sbarra=1;
 		  }else{
 			  sbarra = 0;
+			  gen = 1;
+			  show = 0;
 		  }
-	  }*/
+	  }
 
 }
 
@@ -306,7 +307,7 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         		// Esegui azione
         		HAL_TIM_Base_Stop_IT(&htim3);
         		sbarra_down();
-
+          	    //ssd1306_DisplayString(" ",Font_11x18);
         	}
         }
         if(htim->Instance == TIM2){
@@ -435,27 +436,28 @@ int main(void)
 
     /* USER CODE BEGIN 3 */
 	//ssd1306_WriteString(buffer, Font_16x26, White);
-	  if(gen) generate_random_string();
+	  if(gen) {
+		  generate_random_string();
+		  gen = 0;
+	  }
 	  if(GPIO_PIN_SET == HAL_GPIO_ReadPin(GPIOA,GPIO_PIN_0)){
 	  		  sbarra_up();
+	  		  show = 1;
 	  		   // genera la stringa random
 	  			  //seconds_elapsed = 0;
 	  		  if(sbarra == 0){
 	  			__HAL_TIM_SET_COUNTER(&htim3, 0);
 	  		    HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
 	  			gen = 0;
-	  			v.timestamp = elapsed_secs; //associa il timestamp al veicolo
-	  			strcpy(v.ID,qr_string); //associa la stringa al veicolo
-	  			sbarra = 1;
 	  		  }
 	  	  }
 	  if (show_occupato){
     	  ssd1306_DisplayString("Occupato",Font_11x18);
 	  }
 
-	  if (sbarra){
-			  //v.timestamp = elapsed_secs; //associa il timestamp al veicolo
-			  //strcpy(v.ID,qr_string); //associa la stringa al veicolo
+	  if (sbarra == 1 && show == 1){
+			  v.timestamp = elapsed_secs; //associa il timestamp al veicolo
+			  strcpy(v.ID,qr_string); //associa la stringa al veicolo
 			  draw_qr_on_display2(qr_string); //mostra il qr
 	  }
 
