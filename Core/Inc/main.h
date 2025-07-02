@@ -83,6 +83,8 @@ void Error_Handler(void);
 #define ECHO2_PIN_EXTI_IRQn EXTI9_5_IRQn
 #define LED_ROSSO_Pin GPIO_PIN_9
 #define LED_ROSSO_GPIO_Port GPIOE
+#define DEBUG_Pin GPIO_PIN_10
+#define DEBUG_GPIO_Port GPIOE
 #define LED_VERDE_Pin GPIO_PIN_11
 #define LED_VERDE_GPIO_Port GPIOE
 #define SERVO_SBARRA_Pin GPIO_PIN_12

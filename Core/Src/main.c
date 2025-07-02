@@ -107,6 +107,7 @@ uint32_t start_time_2 = 0;
 uint32_t stop_time_2 = 0;
 uint16_t distance2 = 0;
 bool show = 0;
+bool next_char = 1;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -218,54 +219,28 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    for(int i=0;i<4;i++) {
 	    	for(int j=0;j<4;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
 	    	HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
-	    	if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+	    	if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin)&&next_char == 1)
 	    		    {
 	    		      keyPressed = keypad[0][i];
 	    		    }
-	    		    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+	    		    else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin)&&next_char == 1)
 	    		    {
 	    		      keyPressed = keypad[1][i];
 
 	    		    }
-	    		    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+	    		    else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin)&&next_char == 1)
 	    		    {
 	    		      keyPressed = keypad[2][i];
 
 	    		    }
-	    		    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+	    		    else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin)&&next_char == 1)
 	    		    {
 	    		      keyPressed = keypad[3][i];
 	    		    }
 	    }
 
 
-	    if(pay){
-	    	if (keyPressed != ' ') {
-	    			    buffer[curr]=keyPressed;
-	    			    curr++;
-	    			    keyPressed = ' ';
-	    		    }
-	    			  ssd1306_DisplayString(buffer,Font_6x8);
-	    			  if(curr>=5) {
-	    				  if (!strcmp("11111",buffer)){
-	    					  ssd1306_DisplayString("Arrivederci UwU",Font_6x8);
-	    					  pay = 0;
-	    					  curr = 0;
-	    					  strcpy(buffer,"     ");
-	    					  automobile = 0;
-	    					  gen = 1;
-	    					  show_occupato = 0;
-	    					  //sbarra = 0;
-	    					  //HAL_Delay(100);
-	    				  }else{
-	    					  ssd1306_DisplayString("inserisci pin",Font_6x8);
-	    					  curr = 0;
-	    					  strcpy(buffer,"     ");
-	    					  //HAL_Delay(100);
-	    				  }
-	    			  }
 
-	    		  }
 
 	    HAL_GPIO_WritePin(C1_GPIO_Port, C1_Pin, 1);
 	    HAL_GPIO_WritePin(C2_GPIO_Port, C2_Pin, 1);
@@ -289,10 +264,12 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		  }
 		  if(distance2<20){
 			  sbarra=1;
+	    	  TurnOffLed(GPIOE, GPIO_PIN_10);   // LED rosso
+
 		  }else{
 			  sbarra = 0;
 			  gen = 1;
-			  show = 0;
+	    	 // TurnOnLed(GPIOE, GPIO_PIN_10);   // LED rosso
 		  }
 	  }
 
@@ -307,13 +284,15 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         		// Esegui azione
         		HAL_TIM_Base_Stop_IT(&htim3);
         		sbarra_down();
+  	    	  TurnOnLed(GPIOE, GPIO_PIN_10);   // LED rosso
+
           	    //ssd1306_DisplayString(" ",Font_11x18);
         	}
         }
         if(htim->Instance == TIM2){
         	overflow ++;
-        		HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
-        	    HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
+        	HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_RESET); //Abbassa trigger
+            HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_RESET);
         	if(overflow >= 100){
         		elapsed_secs ++;
         		overflow = 0;
@@ -445,7 +424,7 @@ int main(void)
 	  		  show = 1;
 	  		   // genera la stringa random
 	  			  //seconds_elapsed = 0;
-	  		  if(sbarra == 0){
+	  		  if(sbarra == 1){
 	  			__HAL_TIM_SET_COUNTER(&htim3, 0);
 	  		    HAL_TIM_Base_Start_IT(&htim3); // Avvia il timer
 	  			gen = 0;
@@ -475,6 +454,35 @@ int main(void)
 			  ssd1306_DisplayString("non ci sono auto",Font_6x8);
 	      }
 	   }
+	   if(pay){
+		    	if (keyPressed != ' ') {
+		    		next_char = 1;
+		    		buffer[curr]=keyPressed;
+		    		curr++;
+		    		next_char = 1;
+		    		keyPressed = ' ';
+		    	}
+		    			  ssd1306_DisplayString(buffer,Font_6x8);
+		    			  if(curr>=5) {
+		    				  if (!strcmp("11111",buffer)){
+		    					  ssd1306_DisplayString("Arrivederci UwU",Font_6x8);
+		    					  pay = 0;
+		    					  curr = 0;
+		    					  strcpy(buffer,"     ");
+		    					  automobile = 0;
+		    					  gen = 1;
+		    					  show_occupato = 0;
+		    					  //sbarra = 0;
+		    					  //HAL_Delay(100);
+		    				  }else{
+		    					  ssd1306_DisplayString("inserisci pin",Font_6x8);
+		    					  curr = 0;
+		    					  strcpy(buffer,"     ");
+		    					  //HAL_Delay(100);
+		    				  }
+		    			  }
+
+		    		  }
 			  /*while(curr <= 6){
 				  buffer[curr] = keyPressed;
 
@@ -762,7 +770,7 @@ static void MX_GPIO_Init(void)
   HAL_GPIO_WritePin(GPIOA, TRIGGER2_PIN_Pin|TRIGGER_PIN_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, LED_ROSSO_Pin|DEBUG_Pin|LED_VERDE_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pins : R2_Pin R4_Pin R3_Pin R1_Pin */
   GPIO_InitStruct.Pin = R2_Pin|R4_Pin|R3_Pin|R1_Pin;
@@ -790,8 +798,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LED_ROSSO_Pin LED_VERDE_Pin */
-  GPIO_InitStruct.Pin = LED_ROSSO_Pin|LED_VERDE_Pin;
+  /*Configure GPIO pins : LED_ROSSO_Pin DEBUG_Pin LED_VERDE_Pin */
+  GPIO_InitStruct.Pin = LED_ROSSO_Pin|DEBUG_Pin|LED_VERDE_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
