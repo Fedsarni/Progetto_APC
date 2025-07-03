@@ -63,60 +63,48 @@ TIM_HandleTypeDef htim4;
 GPIO_InitTypeDef GPIO_InitStructPrivate = {0};
 uint32_t previousMillis = 0;
 uint32_t currentMillis = 0;
-char keyPressed = ' ';
+char keyPressed = ' '; //input del tastierino
+
+//variabili del sensore di parcheggio
 uint32_t echo_start_time =0;
 uint32_t echo_stop_time= 0;
 uint32_t distance = 0;
 uint32_t distanzaVicinoCounter = 0; // conteggio in decimi di secondo
 uint32_t away_counter = 0;
-volatile uint16_t qr_flag = 0;
-char distance_string[4];
-uint32_t pwm = 0;
-bool dir = 0;
+
 uint8_t qrcode[qrcodegen_BUFFER_LEN_MAX];
 uint8_t tempBuffer[qrcodegen_BUFFER_LEN_MAX];
 char qr_string[6]; // 5 cifre + terminatore '\0'
-uint8_t occupato_ck = 0; //flag per indicare che il posto è occupato
-uint8_t free_ck = 1; //flag per indicare che il posto è libero
 uint8_t up_flag = 1; //questo flag simula un finecorsa, indica che la sbarra è alta
 uint8_t down_flag = 0; // questo invece indica quando la sbarre è abbassata = 1
 uint8_t atEntrance = 0; //flag che indica se c'è qualcuno alla sbarra
 char buffer[6];
-uint8_t curr_buffer = 0;
-int curr;
-char key;
-uint8_t row;
-uint8_t col;
+int curr = 0;
 GPIO_TypeDef* col_ports[4] = {C1_GPIO_Port, C2_GPIO_Port, C3_GPIO_Port, C4_GPIO_Port};
 uint16_t col_pins[4] = {C1_Pin, C2_Pin, C3_Pin, C4_Pin};
-uint16_t row_pins[4] = {GPIO_PIN_11, GPIO_PIN_13, GPIO_PIN_15, GPIO_PIN_14};
 char keypad[4][4] = {{'1','2','3','A'},{'4','5','6','B'},{'7','8','9','C'},{'*','0','#','D'}};
-uint16_t seconds_elapsed = 0;
-uint16_t elapsed_secs = 0;
-uint32_t elapsed_mins = 0;
+uint16_t seconds_elapsed = 0; //conta i secondi in cui sei all'ingresso
+uint16_t elapsed_secs = 0;	//conta i secondi in cui sei nel parcheggio
 uint16_t overflow = 0;
 typedef struct {
 	uint32_t timestamp;
 	char ID[6];
 }veicolo;
-bool pay = 0;
-bool automobile = 0;
-bool gen = 1;
-bool show_occupato = 0;
+veicolo v;
+bool pay = 0; //indica se bisogna pagare
+
+//variabili del sensore di ingresso
 uint32_t start_time_2 = 0;
 uint32_t stop_time_2 = 0;
 uint16_t distance2 = 0;
-bool showQrCode = 0;
-bool next_char = 1;
 
-//VARIABILI DEL REFACTOR
+
 bool welcome = 1;
 bool warningAtEnter = 0;
 bool parkingChk = 0;
 bool seatChk = 0;
 bool lock = 0;
 bool paid = 0;
-veicolo v; //ipoteticamente per rendere il codice applicabile ad un parcheggio con più posti si potrebbe pensare di implementare una linked list di veicoli ma sono pigro :3
 
 /* USER CODE END PV */
 
@@ -170,8 +158,8 @@ void init_posto(){
 }
 void ultrasound_trigger_func(const int sensor){
 	//Questa funzione invia l'impulso iniziale di 10us
-	if(sensor == 1) HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET);
-	else if (sensor == 2) HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger
+	if(sensor == 1) HAL_GPIO_WritePin(GPIOA,TRIGGER2_PIN_Pin,GPIO_PIN_SET); 			//Alza trigger del sensore di ingresso
+	else if (sensor == 2) HAL_GPIO_WritePin(TRIG_PORT, TRIGGER_PIN_Pin, GPIO_PIN_SET);  //Alza trigger del sensore di parcheggio
 }
 
 
@@ -187,15 +175,14 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			echo_stop_time = __HAL_TIM_GET_COUNTER (&htim2);
 			distance = (echo_stop_time-echo_start_time)* 0.034/2;//Formula data
 			if (distance >= 45) distance = 40; //questo serve per correggere l'overflow
-			show_occupato = 0;
 		}
-		if (distance < 20) {
-			      distanzaVicinoCounter++;
-			      if (distanzaVicinoCounter >= 10) { // 50 * 100ms = 5 secondi
+		if (distance < 20) {						//sono parcheggiato
+			      distanzaVicinoCounter++;			//conta un tic
+			      if (distanzaVicinoCounter >= 10) { // con un impulso ogni 500 ms, 10 x 0.5s = 5s di periodo
 			    	  away_counter = 0;
 			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
-			          seatChk = 1;
+			          seatChk = 1;					//flag del posto
 			      }
 
 		 } else {
@@ -278,10 +265,10 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			if (distance2 >= 45) distance2 = 40;
 		  }
 		  if(distance2<20){
-			  atEntrance = 1;
+			  atEntrance = 1;		//c'è una macchina all'ingresso
 		  }else{
-			  atEntrance = 0;
-			  warningAtEnter = 0;
+			  atEntrance = 0;		//non ci sono macchine all'ingresso
+			  warningAtEnter = 0;	//non bisogna avvisare del warning
 			}
 	  }
 	}
@@ -307,9 +294,6 @@ void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim) {
         	if(overflow >= 100){
         		elapsed_secs ++;
         		overflow = 0;
-        		if ((elapsed_secs % 60) == 0){
-        			 elapsed_mins ++;
-        		}
         	}
         }
 
