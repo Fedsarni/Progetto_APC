@@ -218,56 +218,42 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 	    GPIO_InitStructPrivate.Pull = GPIO_NOPULL;
 	    GPIO_InitStructPrivate.Speed = GPIO_SPEED_FREQ_LOW;
 	    HAL_GPIO_Init(GPIOC, &GPIO_InitStructPrivate);
-	    if(lock == 0){
-	    	lock = 1;
-	    	for(int i=0;i<4;i++) {
+	    for(int i=0;i<4;i++) {
 				for(int j=0;j<4;j++) HAL_GPIO_WritePin(col_ports[j], col_pins[j],0);
 				HAL_GPIO_WritePin(col_ports[i], col_pins[i],1);
-				if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin))
+				if(GPIO_Pin == R1_Pin && HAL_GPIO_ReadPin(R1_GPIO_Port, R1_Pin) && lock == 0)
 						{
 						  keyPressed = keypad[0][i];
+						  lock = 1;
 						}
-						else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin))
+						else if(GPIO_Pin == R2_Pin && HAL_GPIO_ReadPin(R2_GPIO_Port, R2_Pin) && lock == 0)
 						{
 						  keyPressed = keypad[1][i];
+						  lock = 1;
 
 						}
-						else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin))
+						else if(GPIO_Pin == R3_Pin && HAL_GPIO_ReadPin(R3_GPIO_Port, R3_Pin) && lock == 0)
 						{
 						  keyPressed = keypad[2][i];
+						  lock = 1;
 
 						}
-						else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin))
+						else if(GPIO_Pin == R4_Pin && HAL_GPIO_ReadPin(R4_GPIO_Port, R4_Pin) && lock == 0)
 						{
 						  keyPressed = keypad[3][i];
+						  lock = 1;
 						}
 	    	}
 	    	if (keyPressed == '#' && parkingChk == 1) {
 				keyPressed = ' ';
 				pay = 1;
+				lock = 0;
 			}
 			else if (keyPressed == '*' && parkingChk == 1) {
 				keyPressed = ' ';
 				pay = 0;
+				lock = 0;
 			}
-			else if (keyPressed !=' ') {
-				buffer[curr] = keyPressed;
-				curr++;
-				keyPressed = ' ';
-			}
-	    	lock = 0;
-	    }
-	    if(curr>=5) {
-	    			  if (!strcmp(v.ID,buffer)){
-	    				  paid = 1;
-	    				  pay = 0;
-	    				  curr = 0;
-	    				  strcpy(buffer,"     ");
-	    			  }else{
-	    				  curr = 0;
-	    				  strcpy(buffer,"     ");
-	    			  }
-	    }
 
 
 
@@ -489,6 +475,7 @@ int main(void)
 	  }
 
 	  if(parkingChk == 1) {
+		  lock = 0;
 		  paid = 0;
 		  ultrasound_trigger_func(2);
 		  HAL_Delay(500);
@@ -512,6 +499,23 @@ int main(void)
 				  char DisplayPIN[50];
 				  sprintf(DisplayPIN,"Codice: %s", buffer);
 				  ssd1306_DisplayString(DisplayPIN,Font_6x8);
+				  if (keyPressed !=' ') {
+				  				buffer[curr] = keyPressed;
+				  				curr++;
+				  				lock = 0;
+				  				keyPressed = ' ';
+				  				if(curr>=5) {
+								  if (!strcmp(v.ID,buffer)){
+									  paid = 1;
+									  pay = 0;
+									  curr = 0;
+									  strcpy(buffer,"     ");
+								  }else{
+									  curr = 0;
+									  strcpy(buffer,"     ");
+								  }
+								}
+				  			}
 			  }
 			  if(paid == 1) {
 				  ssd1306_DisplayString("Arrivederci UwU",Font_6x8);
