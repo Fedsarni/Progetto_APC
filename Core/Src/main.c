@@ -498,6 +498,7 @@ int main(void)
 				  ultrasound_trigger_func(2);
 				  HAL_Delay(500);
 			  }
+			  pay = 0;
 		  }
 		  else draw_qr_on_display2(qr_string);
 		  if(pay == 1) {
