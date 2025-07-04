@@ -176,9 +176,9 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			distance = (echo_stop_time-echo_start_time)* 0.034/2;//Formula data
 			if (distance >= 45) distance = 40; //questo serve per correggere l'overflow
 		}
-		if (distance < 20) {						//sono parcheggiato
+		if (distance < 7) {						//sono parcheggiato
 			      distanzaVicinoCounter++;			//conta un tic
-			      if (distanzaVicinoCounter >= 10) { // con un impulso ogni 500 ms, 10 x 0.5s = 5s di periodo
+			      if (distanzaVicinoCounter >= 30) { // con un impulso ogni 500 ms, 10 x 0.5s = 5s di periodo
 			    	  away_counter = 0;
 			    	  TurnOnLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			          TurnOffLed(GPIOE, GPIO_PIN_11);  // LED verde
@@ -188,7 +188,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 		 } else {
 			 	  away_counter++;
 			 	  distanzaVicinoCounter = 0; // reset del timer
-			 	  if(away_counter >=10){
+			 	  if(away_counter >=30){
 			 		  TurnOnLed(GPIOE, GPIO_PIN_11);   // LED verde
 			 		  TurnOffLed(GPIOE, GPIO_PIN_9);   // LED rosso
 			 		  seatChk = 0;
@@ -264,7 +264,7 @@ void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin) {
 			distance2= (stop_time_2-start_time_2)* 0.034/2;//Formula data
 			if (distance2 >= 45) distance2 = 40;
 		  }
-		  if(distance2<20){
+		  if(distance2<7){
 			  atEntrance = 1;		//c'è una macchina all'ingresso
 		  }else{
 			  atEntrance = 0;		//non ci sono macchine all'ingresso
